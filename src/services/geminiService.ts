@@ -1,5 +1,5 @@
 
-const GEMINI_API_KEY = 'YOUR_NEW_GEMINI_API_KEY_HERE'; // Replace with your new API key from https://aistudio.google.com/app/apikey
+const GEMINI_API_KEY = 'AIzaSyBprDdLZVyo0Pv6l_Rzx9ReTIWFqkSSGgo';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
 export const generateQuestionPaper = async (formData: any): Promise<string> => {
