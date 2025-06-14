@@ -8,6 +8,7 @@ import html2canvas from 'html2canvas';
 interface QuestionPaperDisplayProps {
   content: string;
   title: string;
+  type?: 'question' | 'solution';
   onGenerateSolutions?: () => void;
   onStartAnswering?: () => void;
   loading?: boolean;
@@ -16,12 +17,13 @@ interface QuestionPaperDisplayProps {
 const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
   content,
   title,
+  type = 'question',
   onGenerateSolutions,
   onStartAnswering,
   loading
 }) => {
   const downloadPDF = async () => {
-    const element = document.getElementById('question-paper-content');
+    const element = document.getElementById(`${type}-paper-content`);
     if (!element) return;
 
     try {
@@ -140,8 +142,9 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       // Clean up
       document.body.removeChild(pdfContainer);
       
-      // Save with formatted filename
-      const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`;
+      // Save with formatted filename based on type
+      const filePrefix = type === 'solution' ? 'solutions' : 'question_paper';
+      const fileName = `${filePrefix}_${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -163,10 +166,10 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Download PDF
+            Download {type === 'solution' ? 'Solutions' : 'Question Paper'}
           </button>
           
-          {onGenerateSolutions && (
+          {onGenerateSolutions && type === 'question' && (
             <button
               onClick={onGenerateSolutions}
               disabled={loading}
@@ -179,7 +182,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             </button>
           )}
           
-          {onStartAnswering && (
+          {onStartAnswering && type === 'question' && (
             <button
               onClick={onStartAnswering}
               className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-pink-500 text-white rounded-lg hover:from-indigo-600 hover:to-pink-600 transition-all text-sm font-medium flex items-center gap-2"
@@ -194,7 +197,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       </div>
       
       <div 
-        id="question-paper-content"
+        id={`${type}-paper-content`}
         className="prose prose-lg max-w-none dark:prose-invert prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-headings:text-center prose-headings:border-b prose-headings:border-gray-300 prose-headings:pb-2 prose-ol:list-decimal prose-ul:list-disc prose-li:my-2"
       >
         <ReactMarkdown 

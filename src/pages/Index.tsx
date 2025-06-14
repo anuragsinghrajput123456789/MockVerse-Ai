@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
@@ -12,6 +11,7 @@ import ResourceList from '../components/ResourceList';
 import HistoryList from '../components/HistoryList';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ScrollToTop from '../components/ScrollToTop';
+import Chatbot from '../components/Chatbot';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
 import { QuestionPaper, Resource, PaperFormData } from '../types';
@@ -37,6 +37,14 @@ const Index = () => {
     { id: 'resources', label: 'Resources', icon: '📚' },
     { id: 'history', label: 'History', icon: '📜' }
   ];
+
+  // Get context for chatbot based on current content
+  const getChatbotContext = () => {
+    if (currentPaper) {
+      return `Current Question Paper:\n${currentPaper.questions}${solutions ? `\n\nSolutions:\n${solutions}` : ''}`;
+    }
+    return undefined;
+  };
 
   const handleGeneratePaper = async (formData: PaperFormData) => {
     setLoading(true);
@@ -151,6 +159,7 @@ const Index = () => {
                 <QuestionPaperDisplay
                   content={currentPaper.questions}
                   title="Question Paper"
+                  type="question"
                   onGenerateSolutions={handleGenerateSolutions}
                   onStartAnswering={() => setShowAnswerForm(true)}
                   loading={loading}
@@ -160,6 +169,7 @@ const Index = () => {
                   <QuestionPaperDisplay
                     content={solutions}
                     title="Solutions"
+                    type="solution"
                   />
                 )}
                 
@@ -251,6 +261,7 @@ const Index = () => {
         </main>
         
         <ScrollToTop />
+        <Chatbot context={getChatbotContext()} />
       </div>
     </ThemeProvider>
   );
