@@ -20,11 +20,16 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
     pattern: ''
   });
 
-  const [availableChapters] = useState([
+  const [defaultChapters] = useState([
     'Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics',
     'Physics', 'Chemistry', 'Biology', 'History', 'Geography',
     'English Literature', 'Grammar', 'Economics', 'Political Science'
   ]);
+
+  const [customChapters, setCustomChapters] = useState<string[]>([]);
+  const [newChapter, setNewChapter] = useState('');
+
+  const availableChapters = [...defaultChapters, ...customChapters];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +44,21 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
       chapters: prev.chapters.includes(chapter)
         ? prev.chapters.filter(c => c !== chapter)
         : [...prev.chapters, chapter]
+    }));
+  };
+
+  const handleAddCustomChapter = () => {
+    if (newChapter.trim() && !availableChapters.includes(newChapter.trim())) {
+      setCustomChapters(prev => [...prev, newChapter.trim()]);
+      setNewChapter('');
+    }
+  };
+
+  const handleRemoveCustomChapter = (chapter: string) => {
+    setCustomChapters(prev => prev.filter(c => c !== chapter));
+    setFormData(prev => ({
+      ...prev,
+      chapters: prev.chapters.filter(c => c !== chapter)
     }));
   };
 
@@ -151,19 +171,59 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
         
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Add Custom Chapter
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newChapter}
+              onChange={(e) => setNewChapter(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              placeholder="Enter chapter name"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddCustomChapter();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleAddCustomChapter}
+              className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Chapters * (Select multiple)
           </label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
             {availableChapters.map((chapter) => (
-              <label key={chapter} className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.chapters.includes(chapter)}
-                  onChange={() => handleChapterToggle(chapter)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{chapter}</span>
-              </label>
+              <div key={chapter} className="flex items-center space-x-2">
+                <label className="flex items-center space-x-2 cursor-pointer flex-1">
+                  <input
+                    type="checkbox"
+                    checked={formData.chapters.includes(chapter)}
+                    onChange={() => handleChapterToggle(chapter)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{chapter}</span>
+                </label>
+                {customChapters.includes(chapter) && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCustomChapter(chapter)}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                    title="Remove custom chapter"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>
