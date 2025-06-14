@@ -1,5 +1,5 @@
 
-const GEMINI_API_KEY = 'AIzaSyAFn4XlGGFr2KGpfIQolxPPFjKbI7pG52o';
+const GEMINI_API_KEY = 'AIzaSyBEYGGXfftHuSIaILH5J9m6PLOndZHh9vg';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
 export const generateQuestionPaper = async (formData: any): Promise<string> => {
