@@ -3,11 +3,6 @@ const GEMINI_API_KEY = 'AIzaSyBprDdLZVyo0Pv6l_Rzx9ReTIWFqkSSGgo';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
 export const generateQuestionPaper = async (formData: any): Promise<string> => {
-  // Check if API key is still the placeholder
-  if (GEMINI_API_KEY === 'YOUR_NEW_GEMINI_API_KEY_HERE') {
-    throw new Error('Please replace GEMINI_API_KEY with your actual API key from Google AI Studio');
-  }
-
   const prompt = `Generate a ${formData.subject} question paper for class ${formData.class} based on chapters: ${formData.chapters.join(', ')}${formData.topics ? ` with focus on: ${formData.topics}` : ''}. 
 
 Requirements:
@@ -50,11 +45,6 @@ Make it look professional and exam-ready.`;
 };
 
 export const generateSolutions = async (questionPaper: string): Promise<string> => {
-  // Check if API key is still the placeholder
-  if (GEMINI_API_KEY === 'YOUR_NEW_GEMINI_API_KEY_HERE') {
-    throw new Error('Please replace GEMINI_API_KEY with your actual API key from Google AI Studio');
-  }
-
   const prompt = `Generate detailed solutions for the following question paper. Provide step-by-step solutions with explanations:
 
 ${questionPaper}
@@ -90,11 +80,6 @@ Please format the solutions with:
 };
 
 export const evaluateAnswers = async (questionPaper: string, answers: string[]): Promise<any> => {
-  // Check if API key is still the placeholder
-  if (GEMINI_API_KEY === 'YOUR_NEW_GEMINI_API_KEY_HERE') {
-    throw new Error('Please replace GEMINI_API_KEY with your actual API key from Google AI Studio');
-  }
-
   const prompt = `Evaluate the following answers for the given question paper and provide detailed feedback:
 
 Question Paper:
