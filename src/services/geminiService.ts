@@ -1,8 +1,13 @@
 
-const GEMINI_API_KEY = 'AIzaSyBEYGGXfftHuSIaILH5J9m6PLOndZHh9vg';
+const GEMINI_API_KEY = 'YOUR_NEW_GEMINI_API_KEY_HERE'; // Replace with your new API key from https://aistudio.google.com/app/apikey
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
 export const generateQuestionPaper = async (formData: any): Promise<string> => {
+  // Check if API key is still the placeholder
+  if (GEMINI_API_KEY === 'YOUR_NEW_GEMINI_API_KEY_HERE') {
+    throw new Error('Please replace GEMINI_API_KEY with your actual API key from Google AI Studio');
+  }
+
   const prompt = `Generate a ${formData.subject} question paper for class ${formData.class} based on chapters: ${formData.chapters.join(', ')}${formData.topics ? ` with focus on: ${formData.topics}` : ''}. 
 
 Requirements:
@@ -36,7 +41,8 @@ Make it look professional and exam-ready.`;
   });
 
   if (!response.ok) {
-    throw new Error('Failed to generate question paper');
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || 'Failed to generate question paper');
   }
 
   const data = await response.json();
@@ -44,6 +50,11 @@ Make it look professional and exam-ready.`;
 };
 
 export const generateSolutions = async (questionPaper: string): Promise<string> => {
+  // Check if API key is still the placeholder
+  if (GEMINI_API_KEY === 'YOUR_NEW_GEMINI_API_KEY_HERE') {
+    throw new Error('Please replace GEMINI_API_KEY with your actual API key from Google AI Studio');
+  }
+
   const prompt = `Generate detailed solutions for the following question paper. Provide step-by-step solutions with explanations:
 
 ${questionPaper}
@@ -70,7 +81,8 @@ Please format the solutions with:
   });
 
   if (!response.ok) {
-    throw new Error('Failed to generate solutions');
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || 'Failed to generate solutions');
   }
 
   const data = await response.json();
@@ -78,6 +90,11 @@ Please format the solutions with:
 };
 
 export const evaluateAnswers = async (questionPaper: string, answers: string[]): Promise<any> => {
+  // Check if API key is still the placeholder
+  if (GEMINI_API_KEY === 'YOUR_NEW_GEMINI_API_KEY_HERE') {
+    throw new Error('Please replace GEMINI_API_KEY with your actual API key from Google AI Studio');
+  }
+
   const prompt = `Evaluate the following answers for the given question paper and provide detailed feedback:
 
 Question Paper:
@@ -113,7 +130,8 @@ Format the response as a structured evaluation report.`;
   });
 
   if (!response.ok) {
-    throw new Error('Failed to evaluate answers');
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || 'Failed to evaluate answers');
   }
 
   const data = await response.json();
