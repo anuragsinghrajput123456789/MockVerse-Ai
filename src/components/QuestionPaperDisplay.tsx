@@ -119,7 +119,6 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       `;
 
       // ---- Cosmetic adjustments ----
-      // Style h1/h2/h3 (titles/sections)
       contentClone.querySelectorAll('h1').forEach(h1 => {
         (h1 as HTMLElement).style.cssText = `
           font-family: 'Times New Roman', Times, serif;
@@ -143,7 +142,6 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           font-family:inherit;font-weight:bold;font-size:13pt;border:none;margin:10px 0 6px 0;text-align:left;color:#000;background:#fff;padding:0;
         `;
       });
-      // Paragraphs
       contentClone.querySelectorAll('p').forEach(p => {
         (p as HTMLElement).style.cssText = `
           margin: 0 0 10px 0;
@@ -154,7 +152,6 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           line-height: 1.9;
         `;
       });
-      // Lists: Section titles and questions/choices
       contentClone.querySelectorAll('ol').forEach(ol => {
         (ol as HTMLElement).style.cssText = `
           margin-top:8px;margin-bottom:8px;padding-left:25px;
@@ -191,7 +188,6 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           `;
         });
       });
-      // Table
       contentClone.querySelectorAll('table').forEach(table => {
         (table as HTMLElement).style.cssText = `
           width:100%;margin:11px 0 10px 0;border-collapse:collapse;border:1px solid #222;background:#fff;
@@ -203,14 +199,12 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           `;
         });
       });
-      // Strong/Bold
       contentClone.querySelectorAll('strong').forEach(str => {
         (str as HTMLElement).style.cssText = "font-weight:bold;color:#000;background:#fff;font-family:inherit;font-size:inherit;";
       });
 
       // Remove extra spacing before footer
       let footerMarginTop = 30;
-      // --- END cosmetic ---
 
       // Build inner HTML for PDF assembly
       // (header previously created)
@@ -247,55 +241,85 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       pdfContainer.appendChild(footer);
 
       document.body.appendChild(pdfContainer);
+
+      // Wait for DOM render
       await new Promise(resolve => setTimeout(resolve, 140));
-      
-      // --- Generate PDF using html2canvas & jsPDF ---
-      const canvas = await html2canvas(pdfContainer, {
-        scale: 2.5,
-        useCORS: true,
-        backgroundColor: '#fff',
-        width: Math.round(210 * 3.78),
-        height: pdfContainer.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: Math.round(210 * 3.78),
-        windowHeight: Math.max(pdfContainer.scrollHeight, Math.round(297 * 3.78)),
-      });
 
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      // ----------- Paginate! -----------
+      // Measure page height (in CSS pixels)
+      const A4_PX_HEIGHT = Math.round((297 / 25.4) * window.devicePixelRatio * 96 / window.devicePixelRatio); // 297mm as px at 96dpi
+      const pdfWidth = 210;
+      const pdfHeight = 297;
 
-      let heightLeft = imgHeight;
-      let position = 0;
-      let pageNumber = 1;
+      const jsPdf = new jsPDF('p', 'mm', 'a4');
+      const pageHeightPx = pdfContainer.offsetWidth / pdfWidth * pdfHeight * window.devicePixelRatio; // Actually, safer to compute directly in px
 
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
-      pdf.setFontSize(10);
-      pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
+      // Render pages one at a time
+      let pageImages: string[] = [];
+      let scrollTop = 0;
+      const totalHeight = pdfContainer.scrollHeight;
+      const clientHeight = pdfContainer.clientHeight;
+      let renderedHeight = 0;
+      while (renderedHeight < totalHeight) {
+        // Only capture the visible viewport of one 'page'
+        pdfContainer.scrollTop = renderedHeight;
+        // Create a mask div for cropping
+        pdfContainer.style.overflow = 'hidden';
+        pdfContainer.style.height = `${pageHeightPx}px`;
 
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = -heightLeft;
-        pageNumber++;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
-        pdf.setFontSize(10);
-        pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
-        heightLeft -= pdfHeight;
+        // Wait for styles to apply
+        await new Promise(resolve => setTimeout(resolve, 40));
+        const canvas = await html2canvas(pdfContainer, {
+          scale: 2.5,
+          useCORS: true,
+          backgroundColor: '#fff',
+          width: pdfContainer.offsetWidth,
+          height: pageHeightPx,
+          scrollX: 0,
+          scrollY: renderedHeight,
+          windowWidth: pdfContainer.offsetWidth,
+          windowHeight: pageHeightPx
+        });
+        const imgData = canvas.toDataURL('image/png', 1.0);
+        pageImages.push(imgData);
+        renderedHeight += pageHeightPx;
       }
 
+      // Restore container height
+      pdfContainer.style.height = '';
+
+      // Remove dom
       document.body.removeChild(pdfContainer);
+
+      // Now, add all unique pages to PDF
+      const pdfPageWidth = jsPdf.internal.pageSize.getWidth();
+      const pdfPageHeight = jsPdf.internal.pageSize.getHeight();
+      let pageNum = 1;
+
+      pageImages.forEach((img, idx) => {
+        if (idx > 0) jsPdf.addPage();
+        // Fit image to page
+        jsPdf.addImage(
+          img,
+          'PNG',
+          0,
+          0,
+          pdfPageWidth,
+          pdfPageHeight,
+          '',
+          'FAST'
+        );
+        // Add page number
+        jsPdf.setFontSize(10);
+        jsPdf.text(`Page ${pageNum}`, pdfPageWidth - 24, pdfPageHeight - 10);
+        pageNum += 1;
+      });
 
       // Generate filename
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filePrefix = type === 'solution' ? 'solutions' : 'question_paper';
       const fileName = `${filePrefix}_${sanitizedTitle}_${currentDate.toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
+      jsPdf.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
     }
@@ -303,7 +327,6 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Header Section */}
       <QuestionPaperHeader
         title={title}
         type={type}
@@ -312,7 +335,6 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         onStartAnswering={onStartAnswering}
         onDownloadPDF={downloadPDF}
       />
-      {/* Content Section */}
       <div className="p-6">
         <div id={`${type}-paper-content`}>
           <QuestionPaperMarkdownContent content={content} />
