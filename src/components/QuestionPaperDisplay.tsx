@@ -27,124 +27,258 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
     if (!element) return;
 
     try {
-      // Create a temporary container with PDF-optimized styling
+      // Create a temporary container optimized for A4 PDF
       const pdfContainer = document.createElement('div');
       pdfContainer.style.cssText = `
-        width: 794px;
-        min-height: 1123px;
-        padding: 40px;
+        width: 210mm;
+        min-height: 297mm;
+        padding: 20mm;
         background: white;
-        font-family: 'Times New Roman', serif;
-        font-size: 14px;
-        line-height: 1.6;
-        color: black;
+        font-family: 'Times New Roman', Georgia, serif;
+        font-size: 12pt;
+        line-height: 1.5;
+        color: #000;
         position: absolute;
-        top: -10000px;
-        left: -10000px;
+        top: -50000px;
+        left: -50000px;
+        box-sizing: border-box;
       `;
       
-      // Clone and style the content for PDF
-      const contentClone = element.cloneNode(true) as HTMLElement;
-      contentClone.style.cssText = `
-        max-width: none;
-        font-family: 'Times New Roman', serif;
-        color: black;
-      `;
-      
-      // Style headings for PDF
-      const headings = contentClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      headings.forEach(heading => {
-        (heading as HTMLElement).style.cssText = `
-          color: black;
-          font-weight: bold;
-          margin: 20px 0 10px 0;
-          text-align: center;
-          border-bottom: 2px solid black;
-          padding-bottom: 5px;
-        `;
-      });
-      
-      // Style paragraphs and lists
-      const paragraphs = contentClone.querySelectorAll('p, li');
-      paragraphs.forEach(p => {
-        (p as HTMLElement).style.cssText = `
-          color: black;
-          margin: 10px 0;
-          text-align: justify;
-        `;
-      });
-      
-      // Style ordered/unordered lists
-      const lists = contentClone.querySelectorAll('ol, ul');
-      lists.forEach(list => {
-        (list as HTMLElement).style.cssText = `
-          margin: 15px 0;
-          padding-left: 30px;
-        `;
-      });
-      
-      // Style strong/bold text
-      const strongElements = contentClone.querySelectorAll('strong, b');
-      strongElements.forEach(strong => {
-        (strong as HTMLElement).style.cssText = `
-          font-weight: bold;
-          color: black;
-        `;
-      });
-      
-      // Add header with title
+      // Add professional header
       const header = document.createElement('div');
       header.style.cssText = `
         text-align: center;
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 3px double black;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #000;
       `;
+      
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleDateString('en-GB');
+      const timeAllowed = type === 'question' ? '3 Hours' : 'Reference Material';
+      
       header.innerHTML = `
-        <h1 style="font-size: 24px; font-weight: bold; margin: 0; text-transform: uppercase;">${title}</h1>
-        <p style="margin: 10px 0 0 0; font-style: italic;">Generated on: ${new Date().toLocaleDateString()}</p>
+        <div style="margin-bottom: 10px; font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+          ${title}
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 10pt;">
+          <span><strong>Date:</strong> ${formattedDate}</span>
+          <span><strong>Time:</strong> ${timeAllowed}</span>
+          <span><strong>Type:</strong> ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>
+        </div>
       `;
+      
+      // Clone and optimize content for PDF
+      const contentClone = element.cloneNode(true) as HTMLElement;
+      contentClone.style.cssText = `
+        font-family: 'Times New Roman', Georgia, serif;
+        color: #000;
+        line-height: 1.6;
+        font-size: 12pt;
+      `;
+      
+      // Enhanced styling for better PDF appearance
+      const applyPDFStyles = (container: HTMLElement) => {
+        // Style all headings
+        const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        headings.forEach((heading, index) => {
+          const level = parseInt(heading.tagName[1]);
+          (heading as HTMLElement).style.cssText = `
+            color: #000;
+            font-weight: bold;
+            text-align: center;
+            margin: ${level === 1 ? '20px' : '15px'} 0 ${level === 1 ? '15px' : '10px'} 0;
+            font-size: ${level === 1 ? '16pt' : level === 2 ? '14pt' : '13pt'};
+            ${level <= 2 ? 'border-bottom: 1px solid #333; padding-bottom: 5px;' : ''}
+            page-break-after: avoid;
+          `;
+        });
+        
+        // Style paragraphs
+        const paragraphs = container.querySelectorAll('p');
+        paragraphs.forEach(p => {
+          (p as HTMLElement).style.cssText = `
+            color: #000;
+            margin: 8px 0;
+            text-align: justify;
+            line-height: 1.6;
+            font-size: 12pt;
+            orphans: 3;
+            widows: 3;
+          `;
+        });
+        
+        // Style lists with better formatting
+        const orderedLists = container.querySelectorAll('ol');
+        orderedLists.forEach(ol => {
+          (ol as HTMLElement).style.cssText = `
+            margin: 12px 0;
+            padding-left: 25px;
+            counter-reset: question-counter;
+          `;
+          
+          const listItems = ol.querySelectorAll('li');
+          listItems.forEach((li, index) => {
+            (li as HTMLElement).style.cssText = `
+              margin: 10px 0;
+              padding: 8px 0;
+              line-height: 1.6;
+              color: #000;
+              position: relative;
+              page-break-inside: avoid;
+            `;
+            
+            // Add question numbering for question papers
+            if (type === 'question') {
+              (li as HTMLElement).style.counterIncrement = 'question-counter';
+            }
+          });
+        });
+        
+        const unorderedLists = container.querySelectorAll('ul');
+        unorderedLists.forEach(ul => {
+          (ul as HTMLElement).style.cssText = `
+            margin: 12px 0;
+            padding-left: 20px;
+          `;
+          
+          const listItems = ul.querySelectorAll('li');
+          listItems.forEach(li => {
+            (li as HTMLElement).style.cssText = `
+              margin: 8px 0;
+              line-height: 1.6;
+              color: #000;
+              list-style-type: disc;
+            `;
+          });
+        });
+        
+        // Style strong/bold text
+        const strongElements = container.querySelectorAll('strong, b');
+        strongElements.forEach(strong => {
+          (strong as HTMLElement).style.cssText = `
+            font-weight: bold;
+            color: #000;
+          `;
+        });
+        
+        // Style code blocks if any
+        const codeBlocks = container.querySelectorAll('code, pre');
+        codeBlocks.forEach(code => {
+          (code as HTMLElement).style.cssText = `
+            font-family: 'Courier New', monospace;
+            background-color: #f5f5f5;
+            padding: 4px 6px;
+            border-radius: 3px;
+            font-size: 11pt;
+          `;
+        });
+        
+        // Style tables if any
+        const tables = container.querySelectorAll('table');
+        tables.forEach(table => {
+          (table as HTMLElement).style.cssText = `
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+          `;
+          
+          const cells = table.querySelectorAll('td, th');
+          cells.forEach(cell => {
+            (cell as HTMLElement).style.cssText = `
+              border: 1px solid #000;
+              padding: 8px;
+              text-align: left;
+            `;
+          });
+        });
+      };
+      
+      applyPDFStyles(contentClone);
+      
+      // Add instructions for question papers
+      if (type === 'question') {
+        const instructions = document.createElement('div');
+        instructions.style.cssText = `
+          margin: 20px 0;
+          padding: 15px;
+          border: 1px solid #000;
+          background-color: #f9f9f9;
+          font-size: 11pt;
+        `;
+        instructions.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">INSTRUCTIONS</div>
+          <div style="line-height: 1.4;">
+            • Read all questions carefully before attempting.<br>
+            • Answer all questions as they appear.<br>
+            • Write clearly and legibly.<br>
+            • Show all working where applicable.<br>
+            • Manage your time effectively.
+          </div>
+        `;
+        pdfContainer.appendChild(instructions);
+      }
       
       pdfContainer.appendChild(header);
       pdfContainer.appendChild(contentClone);
+      
+      // Add footer
+      const footer = document.createElement('div');
+      footer.style.cssText = `
+        margin-top: 30px;
+        padding-top: 15px;
+        border-top: 1px solid #000;
+        text-align: center;
+        font-size: 10pt;
+        color: #666;
+      `;
+      footer.innerHTML = `Generated on ${formattedDate} • ${type === 'question' ? 'Question Paper' : 'Solutions'}`;
+      pdfContainer.appendChild(footer);
+      
       document.body.appendChild(pdfContainer);
 
-      // Generate PDF with better quality settings
+      // Generate high-quality PDF
       const canvas = await html2canvas(pdfContainer, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        width: 794,
-        height: Math.max(1123, pdfContainer.scrollHeight)
+        width: Math.round(210 * 3.78), // A4 width in pixels at 96 DPI
+        height: Math.max(Math.round(297 * 3.78), pdfContainer.scrollHeight * 2)
       });
       
       const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210;
-      const pageHeight = 297;
+      
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = 297; // A4 height in mm
+      const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
       let heightLeft = imgHeight;
       let position = 0;
 
       // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
+      heightLeft -= pdfHeight;
 
       // Add additional pages if needed
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
+        heightLeft -= pdfHeight;
       }
 
       // Clean up
       document.body.removeChild(pdfContainer);
       
-      // Save with formatted filename based on type
+      // Generate filename
+      const timestamp = currentDate.toISOString().split('T')[0];
+      const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filePrefix = type === 'solution' ? 'solutions' : 'question_paper';
-      const fileName = `${filePrefix}_${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `${filePrefix}_${sanitizedTitle}_${timestamp}.pdf`;
+      
       pdf.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -152,69 +286,149 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-yellow-400 bg-clip-text text-transparent">
-          {title}
-        </h2>
-        
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={downloadPDF}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download {type === 'solution' ? 'Solutions' : 'Question Paper'}
-          </button>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              {title}
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+              {type === 'question' ? 'Question Paper' : 'Solutions'} • Generated on {new Date().toLocaleDateString()}
+            </p>
+          </div>
           
-          {onGenerateSolutions && type === 'question' && (
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={onGenerateSolutions}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+              onClick={downloadPDF}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2 shadow-md"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              {loading ? 'Generating...' : 'Generate Solutions'}
+              Download PDF
             </button>
-          )}
-          
-          {onStartAnswering && type === 'question' && (
-            <button
-              onClick={onStartAnswering}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-pink-500 text-white rounded-lg hover:from-indigo-600 hover:to-pink-600 transition-all text-sm font-medium flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              Start Answering
-            </button>
-          )}
+            
+            {onGenerateSolutions && type === 'question' && (
+              <button
+                onClick={onGenerateSolutions}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-md"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {loading ? 'Generating...' : 'Generate Solutions'}
+              </button>
+            )}
+            
+            {onStartAnswering && type === 'question' && (
+              <button
+                onClick={onStartAnswering}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-all text-sm font-medium flex items-center gap-2 shadow-md"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Start Answering
+              </button>
+            )}
+          </div>
         </div>
       </div>
       
-      <div 
-        id={`${type}-paper-content`}
-        className="prose prose-lg max-w-none dark:prose-invert prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-headings:text-center prose-headings:border-b prose-headings:border-gray-300 prose-headings:pb-2 prose-ol:list-decimal prose-ul:list-disc prose-li:my-2"
-      >
-        <ReactMarkdown 
-          remarkPlugins={[remarkGfm]}
-          components={{
-            h1: ({children}) => <h1 className="text-2xl font-bold text-center border-b-2 border-gray-300 pb-2 mb-4">{children}</h1>,
-            h2: ({children}) => <h2 className="text-xl font-bold text-center border-b border-gray-200 pb-1 mb-3">{children}</h2>,
-            h3: ({children}) => <h3 className="text-lg font-semibold mb-2">{children}</h3>,
-            p: ({children}) => <p className="mb-3 text-justify leading-relaxed">{children}</p>,
-            ol: ({children}) => <ol className="list-decimal list-inside space-y-2 ml-4">{children}</ol>,
-            ul: ({children}) => <ul className="list-disc list-inside space-y-2 ml-4">{children}</ul>,
-            li: ({children}) => <li className="mb-2">{children}</li>,
-            strong: ({children}) => <strong className="font-bold">{children}</strong>
-          }}
+      {/* Content Section */}
+      <div className="p-6">
+        <div 
+          id={`${type}-paper-content`}
+          className="prose prose-lg max-w-none dark:prose-invert"
         >
-          {content}
-        </ReactMarkdown>
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h1: ({children}) => (
+                <h1 className="text-2xl font-bold text-center border-b-2 border-gray-300 dark:border-gray-600 pb-3 mb-6 text-gray-900 dark:text-white">
+                  {children}
+                </h1>
+              ),
+              h2: ({children}) => (
+                <h2 className="text-xl font-bold text-center border-b border-gray-200 dark:border-gray-600 pb-2 mb-4 text-gray-800 dark:text-gray-100">
+                  {children}
+                </h2>
+              ),
+              h3: ({children}) => (
+                <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">
+                  {children}
+                </h3>
+              ),
+              p: ({children}) => (
+                <p className="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed text-justify">
+                  {children}
+                </p>
+              ),
+              ol: ({children}) => (
+                <ol className="list-decimal list-outside space-y-4 ml-6 mb-6">
+                  {children}
+                </ol>
+              ),
+              ul: ({children}) => (
+                <ul className="list-disc list-outside space-y-2 ml-6 mb-4">
+                  {children}
+                </ul>
+              ),
+              li: ({children}) => (
+                <li className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed pl-2">
+                  {children}
+                </li>
+              ),
+              strong: ({children}) => (
+                <strong className="font-bold text-gray-900 dark:text-white">
+                  {children}
+                </strong>
+              ),
+              em: ({children}) => (
+                <em className="italic text-gray-800 dark:text-gray-200">
+                  {children}
+                </em>
+              ),
+              code: ({children}) => (
+                <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm font-mono text-gray-800 dark:text-gray-200">
+                  {children}
+                </code>
+              ),
+              pre: ({children}) => (
+                <pre className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg overflow-x-auto mb-4">
+                  {children}
+                </pre>
+              ),
+              blockquote: ({children}) => (
+                <blockquote className="border-l-4 border-blue-500 pl-4 my-4 italic text-gray-600 dark:text-gray-400">
+                  {children}
+                </blockquote>
+              ),
+              table: ({children}) => (
+                <div className="overflow-x-auto mb-4">
+                  <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600">
+                    {children}
+                  </table>
+                </div>
+              ),
+              th: ({children}) => (
+                <th className="border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-4 py-2 text-left font-semibold">
+                  {children}
+                </th>
+              ),
+              td: ({children}) => (
+                <td className="border border-gray-300 dark:border-gray-600 px-4 py-2">
+                  {children}
+                </td>
+              )
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   );
