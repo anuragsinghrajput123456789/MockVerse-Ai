@@ -5,7 +5,6 @@ import TabNavigation from '../components/TabNavigation';
 import PaperForm from '../components/PaperForm';
 import HistoryList from '../components/HistoryList';
 import LoadingSpinner from '../components/LoadingSpinner';
-import ScrollToTop from '../components/ScrollToTop';
 import Chatbot from '../components/Chatbot';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
@@ -320,7 +319,6 @@ const Index = () => {
           </div>
         </main>
         
-        <ScrollToTop />
         <Chatbot context={getChatbotContext()} />
       </div>
     </ThemeProvider>
