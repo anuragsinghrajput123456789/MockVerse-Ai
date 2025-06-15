@@ -2,9 +2,18 @@
 import AuthForm from '@/components/AuthForm';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const AuthPage = () => {
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   if (session) {
     return <Navigate to="/" replace />;

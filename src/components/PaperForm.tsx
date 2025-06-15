@@ -1,7 +1,13 @@
-
 import React, { useState } from 'react';
 import { PaperFormData } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PaperFormProps {
   onSubmit: (data: PaperFormData) => void;
@@ -49,7 +55,7 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
   };
 
   const handleAddCustomChapter = () => {
-    if (newChapter.trim() && !availableChapters.includes(newChapter.trim())) {
+    if (newChapter.trim() && !defaultChapters.includes(newChapter.trim()) && !customChapters.includes(newChapter.trim())) {
       setCustomChapters(prev => [...prev, newChapter.trim()]);
       setNewChapter('');
     }
@@ -89,17 +95,20 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Class *
             </label>
-            <select
+            <Select
               value={formData.class}
-              onChange={(e) => setFormData(prev => ({ ...prev, class: e.target.value }))}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              onValueChange={(value) => setFormData(prev => ({ ...prev, class: value }))}
               required
             >
-              <option value="">Select Class</option>
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i + 1} value={`${i + 1}`}>{i + 1}th</option>
-              ))}
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Class" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <SelectItem key={i + 1} value={`${i + 1}`}>{i + 1}th</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <div>
@@ -119,54 +128,64 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Difficulty Level
             </label>
-            <select
+            <Select
               value={formData.difficulty}
-              onChange={(e) => setFormData(prev => ({ ...prev, difficulty: e.target.value as any }))}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value as any }))}
             >
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Average">Average</option>
-              <option value="Hard">Hard</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Easy">Easy</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="Average">Average</SelectItem>
+                <SelectItem value="Hard">Hard</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Board/Book Type *
             </label>
-            <select
+            <Select
               value={formData.board}
-              onChange={(e) => setFormData(prev => ({ ...prev, board: e.target.value }))}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              onValueChange={(value) => setFormData(prev => ({ ...prev, board: value }))}
               required
             >
-              <option value="">Select Board</option>
-              <option value="NCERT">NCERT</option>
-              <option value="CBSE">CBSE</option>
-              <option value="ICSE">ICSE</option>
-              <option value="State Board">State Board</option>
-              <option value="IB">IB</option>
-              <option value="Cambridge">Cambridge</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Board" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NCERT">NCERT</SelectItem>
+                <SelectItem value="CBSE">CBSE</SelectItem>
+                <SelectItem value="ICSE">ICSE</SelectItem>
+                <SelectItem value="State Board">State Board</SelectItem>
+                <SelectItem value="IB">IB</SelectItem>
+                <SelectItem value="Cambridge">Cambridge</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Question Pattern
             </label>
-            <select
+            <Select
               value={formData.pattern}
-              onChange={(e) => setFormData(prev => ({ ...prev, pattern: e.target.value }))}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              onValueChange={(value) => setFormData(prev => ({ ...prev, pattern: value }))}
             >
-              <option value="">Select Pattern</option>
-              <option value="Board-style">Board-style</option>
-              <option value="Local">Local</option>
-              <option value="MCQ">MCQ</option>
-              <option value="Mixed">Mixed</option>
-              <option value="Custom">Custom</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Pattern" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Board-style">Board-style</SelectItem>
+                <SelectItem value="Local">Local</SelectItem>
+                <SelectItem value="MCQ">MCQ</SelectItem>
+                <SelectItem value="Mixed">Mixed</SelectItem>
+                <SelectItem value="Custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         
@@ -202,30 +221,54 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Chapters * (Select multiple)
           </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-            {availableChapters.map((chapter) => (
-              <div key={chapter} className="flex items-center space-x-2">
-                <label className="flex items-center space-x-2 cursor-pointer flex-1">
-                  <input
-                    type="checkbox"
-                    checked={formData.chapters.includes(chapter)}
-                    onChange={() => handleChapterToggle(chapter)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{chapter}</span>
-                </label>
-                {customChapters.includes(chapter) && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCustomChapter(chapter)}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                    title="Remove custom chapter"
-                  >
-                    ×
-                  </button>
-                )}
+          <div className="space-y-4 max-h-60 overflow-y-auto p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+            <div>
+              <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-2">Default Chapters</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {defaultChapters.map((chapter) => (
+                  <div key={chapter} className="flex items-center space-x-2">
+                    <label className="flex items-center space-x-2 cursor-pointer flex-1">
+                      <input
+                        type="checkbox"
+                        checked={formData.chapters.includes(chapter)}
+                        onChange={() => handleChapterToggle(chapter)}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{chapter}</span>
+                    </label>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {customChapters.length > 0 && (
+              <div>
+                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-2">Custom Chapters</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {customChapters.map((chapter) => (
+                    <div key={chapter} className="flex items-center space-x-2">
+                      <label className="flex items-center space-x-2 cursor-pointer flex-1">
+                        <input
+                          type="checkbox"
+                          checked={formData.chapters.includes(chapter)}
+                          onChange={() => handleChapterToggle(chapter)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{chapter}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomChapter(chapter)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        title="Remove custom chapter"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         
