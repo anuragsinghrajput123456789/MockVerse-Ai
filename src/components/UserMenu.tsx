@@ -2,6 +2,16 @@
 import React from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogOut } from 'lucide-react';
 
 interface UserMenuProps {
   session: Session | null;
@@ -12,21 +22,37 @@ interface UserMenuProps {
 const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
   const navigate = useNavigate();
 
+  const getInitials = (email: string | undefined): string => {
+    return email?.substring(0, 2).toUpperCase() || '??';
+  };
+
   return (
     <div className="absolute top-4 right-4 z-10">
       {session ? (
-        <div className="flex items-center gap-4">
-          <span className="text-gray-700 dark:text-gray-300 text-sm hidden sm:block font-medium">
-            {session.user.email}
-          </span>
-          <button
-            onClick={onLogout}
-            className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg shadow-md hover:from-red-600 hover:to-orange-600 transition-all text-sm font-semibold"
-            disabled={loading}
-          >
-            {loading ? 'Logging out...' : 'Logout'}
-          </button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+              <Avatar className="h-9 w-9">
+                <AvatarFallback>{getInitials(session.user.email)}</AvatarFallback>
+              </Avatar>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">My Account</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {session.user.email}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onLogout} disabled={loading} className="cursor-pointer">
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>{loading ? 'Logging out...' : 'Logout'}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : (
         <button
           onClick={() => navigate('/auth')}
