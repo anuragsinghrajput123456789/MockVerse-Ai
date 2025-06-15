@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
@@ -6,94 +7,128 @@ import PaperForm from '../components/PaperForm';
 import HistoryList from '../components/HistoryList';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Chatbot from '../components/Chatbot';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
 import { QuestionPaper, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
-import PomodoroTimer from '../components/PomodoroTimer';
-import { supabase } from '../integrations/supabase/client';
-import { Session } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
 import UserMenu from '../components/UserMenu';
 import AnswerTab from '../components/tabs/AnswerTab';
 import EvaluateTab from '../components/tabs/EvaluateTab';
 import ResourcesTab from '../components/tabs/ResourcesTab';
+import { useAuthSession } from '../hooks/useAuthSession';
+import { usePaperHistory } from '../hooks/usePaperHistory';
+import { usePaperActions } from '../hooks/usePaperActions';
+import { supabase } from '../integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('generate');
   const [currentPaper, setCurrentPaper] = useState<QuestionPaper | null>(null);
   const [solutions, setSolutions] = useState<string>('');
   const [evaluationResult, setEvaluationResult] = useState<string>('');
-  const [loading, setLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
-  const [session, setSession] = useState<Session | null>(null);
-  const [checkingSession, setCheckingSession] = useState(true);
   
-  const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
-  
+  const { session, checkingSession } = useAuthSession();
+  const { data: paperHistory = [], isLoading: historyLoading } = usePaperHistory(session);
+  const { generatePaperMutation, generateSolutionsMutation, evaluateAnswersMutation } = usePaperActions(session);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setCheckingSession(false);
-    });
-    return () => subscription?.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!checkingSession && !session) {
-      navigate('/auth');
-    }
-  }, [session, checkingSession, navigate]);
-
-  useEffect(() => {
-    if (session) {
-      fetchHistory();
-    } else {
-      setPaperHistory([]);
+    if (!session) {
+      setCurrentPaper(null);
+      setSolutions('');
+      setEvaluationResult('');
+      setActiveTab('generate');
     }
   }, [session]);
-
-  const fetchHistory = async () => {
-    if (!session) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('question_papers')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        const formattedPapers: QuestionPaper[] = data.map(p => ({
-          id: p.id,
-          subject: p.subject,
-          class: p.class,
-          totalMarks: p.total_marks,
-          difficulty: p.difficulty as any,
-          board: p.board,
-          chapters: p.chapters,
-          topics: p.topics || '',
-          instructions: p.instructions || '',
-          pattern: p.pattern,
-          questions: p.questions,
-          createdAt: new Date(p.created_at),
-        }));
-        setPaperHistory(formattedPapers);
-      }
-    } catch (error) {
-      console.error('Error fetching paper history:', error);
+  
+  const handleGeneratePaper = (formData: PaperFormData) => {
+    if (!session) {
       toast({
-        title: "Error",
-        description: "Failed to fetch paper history.",
+        title: "Authentication Required",
+        description: "Please log in to generate a paper.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      navigate('/auth');
+      return;
+    }
+    generatePaperMutation.mutate(formData, {
+      onSuccess: (paper) => {
+        setCurrentPaper(paper);
+        setActiveTab('answer');
+        toast({
+          title: "Question Paper Generated!",
+          description: "Your paper has been generated and saved.",
+        });
+      },
+      onError: (error) => {
+        console.error('Error generating paper:', error);
+        toast({
+          title: "Error",
+          description: "Failed to generate paper. Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleGenerateSolutions = () => {
+    if (!currentPaper) return;
+    generateSolutionsMutation.mutate(currentPaper.questions, {
+      onSuccess: (solutionContent) => {
+        setSolutions(solutionContent);
+        toast({
+          title: "Solutions Generated!",
+          description: "Solutions have been generated successfully.",
+        });
+      },
+      onError: (error) => {
+        console.error('Error generating solutions:', error);
+        toast({
+          title: "Error",
+          description: "Failed to generate solutions. Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleSubmitAnswers = (answers: string[]) => {
+    if (!currentPaper) return;
+    evaluateAnswersMutation.mutate({ questions: currentPaper.questions, answers }, {
+      onSuccess: (result) => {
+        setEvaluationResult(result);
+        setActiveTab('evaluate');
+        toast({
+          title: "Answers Evaluated!",
+          description: "Your answers have been evaluated successfully.",
+        });
+      },
+      onError: (error) => {
+        console.error('Error evaluating answers:', error);
+        toast({
+          title: "Error",
+          description: "Failed to evaluate answers. Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleSelectPaper = (paper: QuestionPaper) => {
+    setCurrentPaper(paper);
+    setSolutions('');
+    setEvaluationResult('');
+    setActiveTab('answer');
+  };
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    const { error } = await supabase.auth.signOut();
+    setLogoutLoading(false);
+    if (error) {
+      toast({ title: "Logout Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Logged Out", description: "You have been successfully logged out." });
     }
   };
 
@@ -111,154 +146,20 @@ const Index = () => {
     }
     return undefined;
   };
-
-  const handleGeneratePaper = async (formData: PaperFormData) => {
-    if (!session) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to generate and save a question paper.",
-        variant: "destructive",
-      });
-      navigate('/auth');
-      return;
-    }
-    setLoading(true);
-    try {
-      const content = await generateQuestionPaper(formData);
-      
-      const newPaperDataForDb = {
-        user_id: session.user.id,
-        subject: formData.subject,
-        class: formData.class,
-        total_marks: formData.totalMarks,
-        difficulty: formData.difficulty,
-        board: formData.board,
-        chapters: formData.chapters,
-        topics: formData.topics,
-        instructions: formData.instructions,
-        pattern: formData.pattern,
-        questions: content,
-      };
-
-      const { data: savedPaper, error: insertError } = await supabase
-        .from('question_papers')
-        .insert(newPaperDataForDb)
-        .select()
-        .single();
-      
-      if (insertError) throw insertError;
-
-      const paper: QuestionPaper = {
-        id: savedPaper.id,
-        subject: savedPaper.subject,
-        class: savedPaper.class,
-        totalMarks: savedPaper.total_marks,
-        difficulty: savedPaper.difficulty as any,
-        board: savedPaper.board,
-        chapters: savedPaper.chapters,
-        topics: savedPaper.topics || '',
-        instructions: savedPaper.instructions || '',
-        pattern: savedPaper.pattern,
-        questions: savedPaper.questions,
-        createdAt: new Date(savedPaper.created_at),
-      };
-      
-      setCurrentPaper(paper);
-      setPaperHistory(prev => [paper, ...prev]);
-      setActiveTab('answer');
-      
-      toast({
-        title: "Question Paper Generated!",
-        description: "Your question paper has been generated and saved successfully.",
-      });
-    } catch (error) {
-      console.error('Error generating paper:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate question paper. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGenerateSolutions = async () => {
-    if (!currentPaper) return;
-    
-    setLoading(true);
-    try {
-      const solutionContent = await generateSolutions(currentPaper.questions);
-      setSolutions(solutionContent);
-      
-      toast({
-        title: "Solutions Generated!",
-        description: "Solutions have been generated successfully.",
-      });
-    } catch (error) {
-      console.error('Error generating solutions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate solutions. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmitAnswers = async (answers: string[]) => {
-    if (!currentPaper) return;
-    
-    setLoading(true);
-    try {
-      const result = await evaluateAnswers(currentPaper.questions, answers);
-      setEvaluationResult(result);
-      setActiveTab('evaluate');
-      
-      toast({
-        title: "Answers Evaluated!",
-        description: "Your answers have been evaluated successfully.",
-      });
-    } catch (error) {
-      console.error('Error evaluating answers:', error);
-      toast({
-        title: "Error",
-        description: "Failed to evaluate answers. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelectPaper = (paper: QuestionPaper) => {
-    setCurrentPaper(paper);
-    setActiveTab('answer');
-  };
-
-  const handleLogout = async () => {
-    setLogoutLoading(true);
-    const { error } = await supabase.auth.signOut();
-    setLogoutLoading(false);
-    if (error) {
-      toast({ title: "Logout Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Logged Out", description: "You have been successfully logged out." });
-    }
-  };
+  
+  const loading = historyLoading || generatePaperMutation.isPending || generateSolutionsMutation.isPending || evaluateAnswersMutation.isPending;
 
   const renderContent = () => {
     switch (activeTab) {
       case 'generate':
-        return <PaperForm onSubmit={handleGeneratePaper} loading={loading} />;
+        return <PaperForm onSubmit={handleGeneratePaper} loading={generatePaperMutation.isPending} />;
       
       case 'answer':
         return (
           <AnswerTab
             currentPaper={currentPaper}
             solutions={solutions}
-            loading={loading}
+            loading={generateSolutionsMutation.isPending}
             onGenerateSolutions={handleGenerateSolutions}
             onSubmitAnswers={handleSubmitAnswers}
             onNavigateToGenerate={() => setActiveTab('generate')}
