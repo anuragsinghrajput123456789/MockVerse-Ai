@@ -83,18 +83,17 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             padding: 10px 18px 10px 20px; 
             margin-bottom: 13px;
             font-size: 11.8pt;
-            line-height: 1.8;
             background: #fff;
             font-family: 'Times New Roman', Times, serif;
             "
           >
             <div style="font-weight: bolder; font-size: 13.5pt; margin-bottom:.5em;letter-spacing:0.2px;">GENERAL INSTRUCTIONS</div>
-            <ul style="margin:0;padding:0 0 0 20px;list-style-type:square;">
-              <li style="margin-bottom:3px;">Read all instructions carefully before attempting.</li>
-              <li style="margin-bottom:3px;">Attempt all questions unless instructed otherwise.</li>
-              <li style="margin-bottom:3px;">Write clearly. No extra sheets allowed unless asked.</li>
-              <li style="margin-bottom:3px;">Use only blue or black ink pen for writing answers.</li>
-              <li style="margin-bottom:3px;">Calculators/mobile phones are not permitted.</li>
+            <ul style="margin:0;padding:0 0 0 20px;list-style-type:square; line-height: 1.7;">
+              <li style="margin-bottom:4px;">Read all instructions carefully before attempting.</li>
+              <li style="margin-bottom:4px;">Attempt all questions unless instructed otherwise.</li>
+              <li style="margin-bottom:4px;">Write clearly. No extra sheets allowed unless asked.</li>
+              <li style="margin-bottom:4px;">Use only blue or black ink pen for writing answers.</li>
+              <li style="margin-bottom:4px;">Calculators/mobile phones are not permitted.</li>
               <li style="">All questions carry equal marks unless specified.</li>
             </ul>
           </div>
@@ -152,7 +151,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           text-align: left;
           color: #000;
           background: #fff;
-          line-height: 1.8;
+          line-height: 1.9;
         `;
       });
       // Lists: Section titles and questions/choices
@@ -169,7 +168,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             background:#fff;
             font-family:'Times New Roman', Times, serif;
             text-align:left;
-            line-height:1.8;
+            line-height:1.9;
             padding-left:1.5px;
             position:relative;
             border:none;
@@ -188,7 +187,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             padding-left:1.5px;
             font-family:'Times New Roman', Times, serif;
             color:#000;
-            line-height: 1.6;
+            line-height: 1.7;
           `;
         });
       });
@@ -265,8 +264,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
 
       const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pdfHeight = 297;
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -274,7 +273,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       let position = 0;
       let pageNumber = 1;
 
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, Math.min(imgHeight, pdfHeight), '', 'FAST');
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
       pdf.setFontSize(10);
       pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
 
@@ -282,8 +281,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
 
       while (heightLeft > 0) {
         position = -heightLeft;
-        pdf.addPage();
         pageNumber++;
+        pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
         pdf.setFontSize(10);
         pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
