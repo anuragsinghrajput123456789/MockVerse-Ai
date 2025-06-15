@@ -1,16 +1,25 @@
-
 const GEMINI_API_KEY = 'AIzaSyBprDdLZVyo0Pv6l_Rzx9ReTIWFqkSSGgo';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
 export const generateQuestionPaper = async (formData: any): Promise<string> => {
+  const requirements = [
+    `- Total marks: ${formData.totalMarks}`,
+    `- Difficulty level: ${formData.difficulty}`,
+    `- Board/Book type: ${formData.board}`,
+    `- Pattern: ${formData.pattern}`,
+  ];
+
+  if (formData.pattern === 'Custom' && formData.customPatternDetails) {
+    requirements.push(`- Custom Pattern Details: ${formData.customPatternDetails}`);
+  }
+  if (formData.instructions) {
+    requirements.push(`- Additional instructions: ${formData.instructions}`);
+  }
+
   const prompt = `Generate a ${formData.subject} question paper for class ${formData.class} based on chapters: ${formData.chapters.join(', ')}${formData.topics ? ` with focus on: ${formData.topics}` : ''}. 
 
 Requirements:
-- Total marks: ${formData.totalMarks}
-- Difficulty level: ${formData.difficulty}
-- Board/Book type: ${formData.board}
-- Pattern: ${formData.pattern}
-${formData.instructions ? `- Additional instructions: ${formData.instructions}` : ''}
+${requirements.join('\n')}
 
 Please format the question paper with:
 1. Proper header with subject, class, time, and marks

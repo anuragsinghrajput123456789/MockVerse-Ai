@@ -48,4 +48,5 @@ export interface PaperFormData {
   topics: string;
   instructions: string;
   pattern: string;
+  customPatternDetails?: string;
 }
