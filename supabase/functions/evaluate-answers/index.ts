@@ -12,31 +12,25 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { questionPaper, answers } = await req.json();
 
-    const prompt = `Evaluate the following answers for the given question paper and provide detailed feedback:
+    const prompt = `Evaluate the following answers for the given question paper and provide marks and detailed feedback. The answers are provided in a list where each element corresponds to a question.
 
 Question Paper:
 ${questionPaper}
 
-Student Answers:
-${answers.map((answer: string, index: number) => `Question ${index + 1}: ${answer}`).join('\n')}
+Answers:
+${answers.map((ans, i) => `Answer for Q${i + 1}: ${ans}`).join('\n')}
 
 Please provide:
-1. Marks for each question
-2. Total marks obtained
-3. Percentage
-4. Grade (A+/A/B+/B/C+/C/D/F)
-5. Overall feedback
-6. Specific feedback for each answer
-7. Areas for improvement
-8. Suggestions for better performance
-
-Format the response as a structured evaluation report.`;
+1. A total score.
+2. Question-by-question feedback.
+3. An overall summary.
+Make it structured and easy to read.`;
 
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',

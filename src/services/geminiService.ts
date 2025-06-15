@@ -9,7 +9,7 @@ export const generateQuestionPaper = async (formData: PaperFormData): Promise<st
 
   if (error) {
     console.error('Error invoking generate-paper function:', error);
-    throw new Error(error.message);
+    throw error;
   }
   
   if (data.error) {
@@ -26,7 +26,7 @@ export const generateSolutions = async (questionPaper: string): Promise<string> 
 
   if (error) {
     console.error('Error invoking generate-solutions function:', error);
-    throw new Error(error.message);
+    throw error;
   }
   
   if (data.error) {
@@ -43,7 +43,7 @@ export const evaluateAnswers = async (questionPaper: string, answers: string[]):
 
   if (error) {
     console.error('Error invoking evaluate-answers function:', error);
-    throw new Error(error.message);
+    throw error;
   }
 
   if (data.error) {
