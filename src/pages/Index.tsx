@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
@@ -71,47 +70,43 @@ const Index = () => {
     });
   };
 
-  const handleGenerateSolutions = () => {
+  const handleGenerateSolutions = async () => {
     if (!currentPaper) return;
-    generateSolutionsMutation.mutate(currentPaper.questions, {
-      onSuccess: (solutionContent) => {
-        setSolutions(solutionContent);
-        toast({
-          title: "Solutions Generated!",
-          description: "Solutions have been generated successfully.",
-        });
-      },
-      onError: (error) => {
-        console.error('Error generating solutions:', error);
-        toast({
-          title: "Error",
-          description: "Failed to generate solutions. Please try again.",
-          variant: "destructive",
-        });
-      },
-    });
+    try {
+      const solutionContent = await generateSolutionsMutation.mutateAsync(currentPaper.questions);
+      setSolutions(solutionContent);
+      toast({
+        title: "Solutions Generated!",
+        description: "Solutions have been generated successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating solutions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate solutions. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSubmitAnswers = (answers: string[]) => {
+  const handleSubmitAnswers = async (answers: string[]) => {
     if (!currentPaper) return;
-    evaluateAnswersMutation.mutate({ questions: currentPaper.questions, answers }, {
-      onSuccess: (result) => {
-        setEvaluationResult(result);
-        setActiveTab('evaluate');
-        toast({
-          title: "Answers Evaluated!",
-          description: "Your answers have been evaluated successfully.",
-        });
-      },
-      onError: (error) => {
-        console.error('Error evaluating answers:', error);
-        toast({
-          title: "Error",
-          description: "Failed to evaluate answers. Please try again.",
-          variant: "destructive",
-        });
-      },
-    });
+    try {
+      const result = await evaluateAnswersMutation.mutateAsync({ questions: currentPaper.questions, answers });
+      setEvaluationResult(result);
+      setActiveTab('evaluate');
+      toast({
+        title: "Answers Evaluated!",
+        description: "Your answers have been evaluated successfully.",
+      });
+    } catch (error) {
+      console.error('Error evaluating answers:', error);
+      toast({
+        title: "Error",
+        description: "Failed to evaluate answers. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSelectPaper = (paper: QuestionPaper) => {
@@ -159,7 +154,7 @@ const Index = () => {
           <AnswerTab
             currentPaper={currentPaper}
             solutions={solutions}
-            loading={generateSolutionsMutation.isPending}
+            loading={generateSolutionsMutation.isPending || evaluateAnswersMutation.isPending}
             onGenerateSolutions={handleGenerateSolutions}
             onSubmitAnswers={handleSubmitAnswers}
             onNavigateToGenerate={() => setActiveTab('generate')}
