@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PaperFormData } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -34,6 +35,7 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
   
   const chapterMap: Record<string, string[]> = {
     'mathematics': ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'],
+    'math': ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'],
     'physics': ['Kinematics', 'Laws of Motion', 'Work, Energy and Power', 'Thermodynamics', 'Optics'],
     'chemistry': ['Structure of Atom', 'Chemical Bonding', 'States of Matter', 'Thermodynamics', 'Organic Chemistry'],
     'biology': ['The Living World', 'Cell Structure and Function', 'Human Physiology', 'Genetics and Evolution'],
