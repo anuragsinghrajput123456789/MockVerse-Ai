@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
 import TabNavigation from '../components/TabNavigation';
@@ -18,6 +17,9 @@ import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../se
 import { QuestionPaper, Resource, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
 import PomodoroTimer from '../components/PomodoroTimer';
+import { supabase } from '../integrations/supabase/client';
+import { Session } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('generate');
@@ -26,11 +28,74 @@ const Index = () => {
   const [evaluationResult, setEvaluationResult] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [showAnswerForm, setShowAnswerForm] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
   
-  const [paperHistory, setPaperHistory] = useLocalStorage<QuestionPaper[]>('paperHistory', []);
+  const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
   const [resources, setResources] = useLocalStorage<Resource[]>('resources', []);
   
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      fetchHistory();
+    } else {
+      setPaperHistory([]);
+    }
+  }, [session]);
+
+  const fetchHistory = async () => {
+    if (!session) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('question_papers')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const formattedPapers: QuestionPaper[] = data.map(p => ({
+          id: p.id,
+          subject: p.subject,
+          class: p.class,
+          totalMarks: p.total_marks,
+          difficulty: p.difficulty as any,
+          board: p.board,
+          chapters: p.chapters,
+          topics: p.topics || '',
+          instructions: p.instructions || '',
+          pattern: p.pattern,
+          questions: p.questions,
+          createdAt: new Date(p.created_at),
+        }));
+        setPaperHistory(formattedPapers);
+      }
+    } catch (error) {
+      console.error('Error fetching paper history:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch paper history.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const tabs = [
     { id: 'generate', label: 'Generate', icon: '✨' },
@@ -40,7 +105,6 @@ const Index = () => {
     { id: 'history', label: 'History', icon: '📜' }
   ];
 
-  // Get context for chatbot based on current content
   const getChatbotContext = () => {
     if (currentPaper) {
       return `Current Question Paper:\n${currentPaper.questions}${solutions ? `\n\nSolutions:\n${solutions}` : ''}`;
@@ -49,14 +113,54 @@ const Index = () => {
   };
 
   const handleGeneratePaper = async (formData: PaperFormData) => {
+    if (!session) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to generate and save a question paper.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
     setLoading(true);
     try {
       const content = await generateQuestionPaper(formData);
-      const paper: QuestionPaper = {
-        id: Date.now().toString(),
-        ...formData,
+      
+      const newPaperDataForDb = {
+        user_id: session.user.id,
+        subject: formData.subject,
+        class: formData.class,
+        total_marks: formData.totalMarks,
+        difficulty: formData.difficulty,
+        board: formData.board,
+        chapters: formData.chapters,
+        topics: formData.topics,
+        instructions: formData.instructions,
+        pattern: formData.pattern,
         questions: content,
-        createdAt: new Date()
+      };
+
+      const { data: savedPaper, error: insertError } = await supabase
+        .from('question_papers')
+        .insert(newPaperDataForDb)
+        .select()
+        .single();
+      
+      if (insertError) throw insertError;
+
+      const paper: QuestionPaper = {
+        id: savedPaper.id,
+        subject: savedPaper.subject,
+        class: savedPaper.class,
+        totalMarks: savedPaper.total_marks,
+        difficulty: savedPaper.difficulty as any,
+        board: savedPaper.board,
+        chapters: savedPaper.chapters,
+        topics: savedPaper.topics || '',
+        instructions: savedPaper.instructions || '',
+        pattern: savedPaper.pattern,
+        questions: savedPaper.questions,
+        createdAt: new Date(savedPaper.created_at),
       };
       
       setCurrentPaper(paper);
@@ -65,7 +169,7 @@ const Index = () => {
       
       toast({
         title: "Question Paper Generated!",
-        description: "Your question paper has been generated successfully.",
+        description: "Your question paper has been generated and saved successfully.",
       });
     } catch (error) {
       console.error('Error generating paper:', error);
@@ -146,6 +250,24 @@ const Index = () => {
   const handleSelectPaper = (paper: QuestionPaper) => {
     setCurrentPaper(paper);
     setActiveTab('answer');
+  };
+
+  const handleLogout = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signOut();
+    setLoading(false);
+    if (error) {
+      toast({ title: "Logout Error", description: error.message, variant: "destructive" });
+    } else {
+      setSession(null);
+      setCurrentPaper(null);
+      setSolutions('');
+      setEvaluationResult('');
+      setPaperHistory([]);
+      setActiveTab('generate');
+      navigate('/');
+      toast({ title: "Logged Out", description: "You have been successfully logged out." });
+    }
   };
 
   const renderContent = () => {
@@ -239,6 +361,29 @@ const Index = () => {
     <ThemeProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors relative">
         <Header />
+        <div className="absolute top-4 right-4 z-10">
+          {session ? (
+            <div className="flex items-center gap-4">
+              <span className="text-gray-700 dark:text-gray-300 text-sm hidden sm:block font-medium">
+                {session.user.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg shadow-md hover:from-red-600 hover:to-orange-600 transition-all text-sm font-semibold"
+                disabled={loading}
+              >
+                {loading ? 'Logging out...' : 'Logout'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate('/auth')}
+              className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg shadow-md hover:from-green-600 hover:to-blue-600 transition-all text-sm font-semibold"
+            >
+              Login / Sign Up
+            </button>
+          )}
+        </div>
         
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">

@@ -33,6 +33,54 @@ export type Database = {
         }
         Relationships: []
       }
+      question_papers: {
+        Row: {
+          board: string
+          chapters: string[]
+          class: string
+          created_at: string
+          difficulty: string
+          id: string
+          instructions: string | null
+          pattern: string
+          questions: string
+          subject: string
+          topics: string | null
+          total_marks: number
+          user_id: string
+        }
+        Insert: {
+          board: string
+          chapters: string[]
+          class: string
+          created_at?: string
+          difficulty: string
+          id?: string
+          instructions?: string | null
+          pattern: string
+          questions: string
+          subject: string
+          topics?: string | null
+          total_marks: number
+          user_id: string
+        }
+        Update: {
+          board?: string
+          chapters?: string[]
+          class?: string
+          created_at?: string
+          difficulty?: string
+          id?: string
+          instructions?: string | null
+          pattern?: string
+          questions?: string
+          subject?: string
+          topics?: string | null
+          total_marks?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
