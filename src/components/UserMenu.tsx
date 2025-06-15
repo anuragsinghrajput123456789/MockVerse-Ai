@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 
 interface UserMenuProps {
   session: Session | null;
@@ -22,10 +22,6 @@ interface UserMenuProps {
 const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
   const navigate = useNavigate();
 
-  const getInitials = (email: string | undefined): string => {
-    return email?.substring(0, 2).toUpperCase() || '??';
-  };
-
   return (
     <div className="absolute top-4 right-4 z-10">
       {session ? (
@@ -33,7 +29,9 @@ const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
           <DropdownMenuTrigger asChild>
             <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
               <Avatar className="h-9 w-9">
-                <AvatarFallback>{getInitials(session.user.email)}</AvatarFallback>
+                <AvatarFallback>
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
