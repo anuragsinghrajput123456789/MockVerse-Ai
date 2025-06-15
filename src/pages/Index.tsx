@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
@@ -16,6 +17,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
 import { QuestionPaper, Resource, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
+import PomodoroTimer from '../components/PomodoroTimer';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('generate');
@@ -174,11 +176,14 @@ const Index = () => {
                 )}
                 
                 {showAnswerForm && (
-                  <AnswerForm
-                    questionPaper={currentPaper.questions}
-                    onSubmit={handleSubmitAnswers}
-                    loading={loading}
-                  />
+                  <>
+                    <PomodoroTimer />
+                    <AnswerForm
+                      questionPaper={currentPaper.questions}
+                      onSubmit={handleSubmitAnswers}
+                      loading={loading}
+                    />
+                  </>
                 )}
               </>
             ) : (
