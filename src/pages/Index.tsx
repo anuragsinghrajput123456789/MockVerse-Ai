@@ -1,111 +1,125 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
 import TabNavigation from '../components/TabNavigation';
 import PaperForm from '../components/PaperForm';
-import HistoryList from '../components/HistoryList';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Chatbot from '../components/Chatbot';
+import ApiKeyInput from '../components/ApiKeyInput';
+import { Button } from '../components/ui/button';
 import { QuestionPaper, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
-import UserMenu from '../components/UserMenu';
 import AnswerTab from '../components/tabs/AnswerTab';
 import EvaluateTab from '../components/tabs/EvaluateTab';
 import ResourcesTab from '../components/tabs/ResourcesTab';
-import { useAuthSession } from '../hooks/useAuthSession';
-import { usePaperHistory } from '../hooks/usePaperHistory';
-import { usePaperActions } from '../hooks/usePaperActions';
-import { supabase } from '../integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
+import { useApiKey } from '../hooks/useApiKey';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('generate');
   const [currentPaper, setCurrentPaper] = useState<QuestionPaper | null>(null);
   const [solutions, setSolutions] = useState<string>('');
   const [evaluationResult, setEvaluationResult] = useState<string>('');
-  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
   
-  const { session, checkingSession } = useAuthSession();
-  const { data: paperHistory = [], isLoading: historyLoading } = usePaperHistory(session);
-  const { generatePaperMutation, generateSolutionsMutation, evaluateAnswersMutation } = usePaperActions(session);
+  const { apiKey, saveApiKey, clearApiKey } = useApiKey();
   const { toast } = useToast();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!session) {
-      setCurrentPaper(null);
-      setSolutions('');
-      setEvaluationResult('');
-      setActiveTab('generate');
-    }
-  }, [session]);
   
-  const handleGeneratePaper = (formData: PaperFormData) => {
-    if (!session) {
+  const handleGeneratePaper = async (formData: PaperFormData) => {
+    if (!apiKey) {
       toast({
-        title: "Authentication Required",
-        description: "Please log in to generate a paper.",
+        title: "API Key Required",
+        description: "Please enter your Gemini API key first.",
         variant: "destructive",
       });
-      navigate('/auth');
       return;
     }
-    generatePaperMutation.mutate(formData, {
-      onSuccess: (paper) => {
-        setCurrentPaper(paper);
-        setActiveTab('answer');
-        toast({
-          title: "Question Paper Generated!",
-          description: "Your paper has been generated and saved.",
-        });
-      },
-      onError: (error) => {
-        console.error('Error generating paper:', error);
-        toast({
-          title: "Error",
-          description: "Failed to generate paper. Please try again.",
-          variant: "destructive",
-        });
-      },
-    });
+
+    setLoading(true);
+    try {
+      const content = await generateQuestionPaper(formData, apiKey);
+      
+      const newPaper: QuestionPaper = {
+        id: Date.now().toString(),
+        subject: formData.subject,
+        class: formData.class,
+        totalMarks: formData.totalMarks,
+        difficulty: formData.difficulty,
+        board: formData.board,
+        chapters: formData.chapters,
+        topics: formData.topics || '',
+        instructions: formData.instructions || '',
+        pattern: formData.pattern,
+        questions: content,
+        createdAt: new Date(),
+      };
+
+      setCurrentPaper(newPaper);
+      setPaperHistory(prev => [newPaper, ...prev]);
+      setActiveTab('answer');
+      
+      toast({
+        title: "Question Paper Generated!",
+        description: "Your paper has been generated successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error generating paper:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate paper. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGenerateSolutions = async () => {
-    if (!currentPaper) return;
+    if (!currentPaper || !apiKey) return;
+    
+    setLoading(true);
     try {
-      const solutionContent = await generateSolutionsMutation.mutateAsync(currentPaper.questions);
+      const solutionContent = await generateSolutions(currentPaper.questions, apiKey);
       setSolutions(solutionContent);
       toast({
         title: "Solutions Generated!",
         description: "Solutions have been generated successfully.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating solutions:', error);
       toast({
         title: "Error",
-        description: "Failed to generate solutions. Please try again.",
+        description: error.message || "Failed to generate solutions. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSubmitAnswers = async (answers: string[]) => {
-    if (!currentPaper) return;
+    if (!currentPaper || !apiKey) return;
+    
+    setLoading(true);
     try {
-      const result = await evaluateAnswersMutation.mutateAsync({ questions: currentPaper.questions, answers });
+      const result = await evaluateAnswers(currentPaper.questions, answers, apiKey);
       setEvaluationResult(result);
       setActiveTab('evaluate');
       toast({
         title: "Answers Evaluated!",
         description: "Your answers have been evaluated successfully.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error evaluating answers:', error);
       toast({
         title: "Error",
-        description: "Failed to evaluate answers. Please try again.",
+        description: error.message || "Failed to evaluate answers. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,17 +128,6 @@ const Index = () => {
     setSolutions('');
     setEvaluationResult('');
     setActiveTab('answer');
-  };
-
-  const handleLogout = async () => {
-    setLogoutLoading(true);
-    const { error } = await supabase.auth.signOut();
-    setLogoutLoading(false);
-    if (error) {
-      toast({ title: "Logout Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Logged Out", description: "You have been successfully logged out." });
-    }
   };
 
   const tabs = [
@@ -141,20 +144,26 @@ const Index = () => {
     }
     return undefined;
   };
-  
-  const loading = historyLoading || generatePaperMutation.isPending || generateSolutionsMutation.isPending || evaluateAnswersMutation.isPending;
 
   const renderContent = () => {
+    if (!apiKey) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <ApiKeyInput onSave={saveApiKey} />
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'generate':
-        return <PaperForm onSubmit={handleGeneratePaper} loading={generatePaperMutation.isPending} />;
+        return <PaperForm onSubmit={handleGeneratePaper} loading={loading} />;
       
       case 'answer':
         return (
           <AnswerTab
             currentPaper={currentPaper}
             solutions={solutions}
-            loading={generateSolutionsMutation.isPending || evaluateAnswersMutation.isPending}
+            loading={loading}
             onGenerateSolutions={handleGenerateSolutions}
             onSubmitAnswers={handleSubmitAnswers}
             onNavigateToGenerate={() => setActiveTab('generate')}
@@ -173,7 +182,32 @@ const Index = () => {
         return <ResourcesTab />;
       
       case 'history':
-        return <HistoryList papers={paperHistory} onSelect={handleSelectPaper} />;
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Paper History</h2>
+            {paperHistory.length === 0 ? (
+              <p className="text-gray-500">No papers generated yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {paperHistory.map((paper) => (
+                  <div
+                    key={paper.id}
+                    className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                    onClick={() => handleSelectPaper(paper)}
+                  >
+                    <h3 className="font-medium">{paper.subject} - Class {paper.class}</h3>
+                    <p className="text-sm text-gray-500">
+                      {paper.chapters.join(', ')} • {paper.totalMarks} marks • {paper.difficulty}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Created: {paper.createdAt.toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
       
       default:
         return null;
@@ -184,7 +218,19 @@ const Index = () => {
     <ThemeProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors relative">
         <Header />
-        <UserMenu session={session} onLogout={handleLogout} loading={logoutLoading} />
+        
+        {apiKey && (
+          <div className="absolute top-4 right-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearApiKey}
+              className="text-xs"
+            >
+              Change API Key
+            </Button>
+          </div>
+        )}
         
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
@@ -197,11 +243,13 @@ const Index = () => {
               </p>
             </div>
             
-            <TabNavigation
-              tabs={tabs}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-            />
+            {apiKey && (
+              <TabNavigation
+                tabs={tabs}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+              />
+            )}
             
             {loading && <LoadingSpinner />}
             
@@ -211,7 +259,7 @@ const Index = () => {
           </div>
         </main>
         
-        <Chatbot context={getChatbotContext()} />
+        {apiKey && <Chatbot context={getChatbotContext()} apiKey={apiKey} />}
       </div>
     </ThemeProvider>
   );
