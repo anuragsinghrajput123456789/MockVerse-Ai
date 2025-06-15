@@ -107,6 +107,8 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
                 {Array.from({ length: 12 }, (_, i) => (
                   <SelectItem key={i + 1} value={`${i + 1}`}>{i + 1}th</SelectItem>
                 ))}
+                <SelectItem value="College">College</SelectItem>
+                <SelectItem value="Diploma">Diploma</SelectItem>
               </SelectContent>
             </Select>
           </div>
