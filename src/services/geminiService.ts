@@ -32,6 +32,8 @@ Please format the question paper with:
 4. Mark allocation for each question
 5. Instructions for students
 
+Important: Generate the FULL question paper with all necessary questions to meet the total marks. Do not use placeholders or summaries like "(...continue with more questions)". The paper must be complete and ready to use.
+
 Make it look professional and exam-ready. Use proper markdown formatting for better readability.`;
 
   const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
