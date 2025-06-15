@@ -26,6 +26,10 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
     if (!element) return;
 
     try {
+      // Declare currentDate ONCE at the top of try block
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleDateString('en-GB');
+      
       // Create/prepare container for A4 PDF with highly visible/readable content
       const pdfContainer = document.createElement('div');
       pdfContainer.style.cssText = `
@@ -58,8 +62,6 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         page-break-inside: avoid;
       `;
       
-      const currentDate = new Date();
-      const formattedDate = currentDate.toLocaleDateString('en-GB');
       const timeAllowed = type === 'question' ? '3 Hours' : 'Reference Material';
       
       header.innerHTML = `
@@ -409,11 +411,9 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       document.body.removeChild(pdfContainer);
 
       // Generate enhanced filename
-      const currentDate = new Date();
-      const timestamp = currentDate.toISOString().split('T')[0];
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filePrefix = type === 'solution' ? 'solutions' : 'question_paper';
-      const fileName = `${filePrefix}_${sanitizedTitle}_${timestamp}.pdf`;
+      const fileName = `${filePrefix}_${sanitizedTitle}_${currentDate.toISOString().split('T')[0]}.pdf`;
       
       pdf.save(fileName);
     } catch (error) {
