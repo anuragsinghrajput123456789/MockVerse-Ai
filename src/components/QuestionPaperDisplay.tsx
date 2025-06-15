@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -27,20 +26,23 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
     if (!element) return;
 
     try {
-      // Create a temporary container optimized for A4 PDF with much better readability
+      // Create/prepare container for A4 PDF with highly visible/readable content
       const pdfContainer = document.createElement('div');
       pdfContainer.style.cssText = `
-        width: 190mm;
-        min-height: auto;
-        padding: 10mm 15mm;
-        background: #ffffff !important;
+        width: 210mm;
+        min-height: 297mm;
+        padding: 18mm 15mm;
+        background: #fff !important;
         font-family: 'Arial', 'Helvetica', sans-serif;
-        font-size: 14pt;
+        font-size: 15pt;
         line-height: 1.8;
-        color: #000000 !important;
+        color: #000 !important;
+        display: block;
         position: absolute;
-        top: -50000px;
-        left: -50000px;
+        left: -9999px;
+        top: 0;
+        opacity: 1 !important;
+        z-index: 2147483647 !important;
         box-sizing: border-box;
         overflow: visible;
       `;
@@ -71,211 +73,243 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         </div>
       `;
       
-      // Clone and optimize content for PDF with enhanced readability
+      // Prepare inner content
       const contentClone = element.cloneNode(true) as HTMLElement;
       contentClone.style.cssText = `
         font-family: 'Arial', 'Helvetica', sans-serif;
-        color: #000000 !important;
+        color: #000 !important;
         line-height: 1.8;
-        font-size: 14pt;
-        background: #ffffff !important;
+        font-size: 15pt;
+        background: #fff !important;
         width: 100%;
         overflow: visible;
+        display: block !important;
+        opacity: 1 !important;
       `;
-      
-      // Enhanced styling for much better PDF appearance
+
+      // Improved: make sure every element is VISIBLE!
       const applyPDFStyles = (container: HTMLElement) => {
-        // Force all elements to have black text on white background
         const allElements = container.querySelectorAll('*');
         allElements.forEach(el => {
-          const element = el as HTMLElement;
-          element.style.color = '#000000 !important';
-          element.style.backgroundColor = 'transparent !important';
-          element.style.pageBreakInside = 'avoid';
-          element.style.fontFamily = 'Arial, Helvetica, sans-serif';
+          const elem = el as HTMLElement;
+          elem.style.color = '#000 !important';
+          elem.style.backgroundColor = '#fff !important';
+          elem.style.fontFamily = 'Arial, Helvetica, sans-serif';
+          elem.style.opacity = '1 !important';
+          elem.style.display = 'block';
         });
-        
-        // Style all headings with larger, bold text
+
+        // Headings
         const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
         headings.forEach((heading) => {
           const level = parseInt(heading.tagName[1]);
           (heading as HTMLElement).style.cssText = `
-            color: #000000 !important;
-            background: transparent !important;
+            color: #000 !important;
+            background: #fff !important;
             font-weight: bold;
             text-align: center;
             margin: ${level === 1 ? '25px' : '20px'} 0 ${level === 1 ? '20px' : '15px'} 0;
             font-size: ${level === 1 ? '20pt' : level === 2 ? '18pt' : '16pt'};
             font-family: Arial, Helvetica, sans-serif;
-            ${level <= 2 ? 'border-bottom: 2px solid #000000; padding-bottom: 8px;' : ''}
+            ${level <= 2 ? 'border-bottom: 2px solid #000; padding-bottom: 8px;' : ''}
             page-break-after: avoid;
             page-break-inside: avoid;
+            opacity: 1 !important;
+            display: block;
           `;
         });
-        
-        // Style paragraphs with better spacing and readability
+
+        // Paragraphs
         const paragraphs = container.querySelectorAll('p');
         paragraphs.forEach(p => {
           (p as HTMLElement).style.cssText = `
-            color: #000000 !important;
-            background: transparent !important;
-            margin: 12px 0;
+            color: #000 !important;
+            background: #fff !important;
+            margin: 14px 0;
             text-align: justify;
             line-height: 1.8;
-            font-size: 14pt;
+            font-size: 15pt;
             font-family: Arial, Helvetica, sans-serif;
+            opacity: 1 !important;
+            display: block;
             orphans: 2;
             widows: 2;
             page-break-inside: avoid;
           `;
         });
-        
-        // Style ordered lists (questions) with much better formatting
+
+        // Ordered/Unordered lists
         const orderedLists = container.querySelectorAll('ol');
         orderedLists.forEach(ol => {
           (ol as HTMLElement).style.cssText = `
             margin: 20px 0;
             padding-left: 30px;
             counter-reset: question-counter;
-            color: #000000 !important;
-            background: transparent !important;
+            color: #000 !important;
+            background: #fff !important;
             page-break-inside: auto;
             font-family: Arial, Helvetica, sans-serif;
+            font-size: 15pt;
+            opacity: 1 !important;
+            display: block;
           `;
-          
           const listItems = ol.querySelectorAll('li');
           listItems.forEach((li, index) => {
             (li as HTMLElement).style.cssText = `
               margin: 20px 0;
               padding: 12px 0;
               line-height: 1.8;
-              color: #000000 !important;
-              background: transparent !important;
+              color: #000 !important;
+              background: #fff !important;
               position: relative;
               page-break-inside: avoid;
               break-inside: avoid;
-              font-size: 14pt;
+              font-size: 15pt;
               font-family: Arial, Helvetica, sans-serif;
               font-weight: normal;
+              opacity: 1 !important;
+              display: block;
             `;
-            
-            // Add better question numbering
+            // Improved question numbering
             if (type === 'question') {
-              const questionNumber = document.createElement('strong');
-              questionNumber.textContent = `Q${index + 1}. `;
-              questionNumber.style.cssText = `
-                font-weight: bold;
-                color: #000000 !important;
-                font-size: 15pt;
-                margin-right: 8px;
-              `;
-              li.insertBefore(questionNumber, li.firstChild);
+              const hasQuestion = li.querySelector('strong[data-qnum]');
+              if (!hasQuestion) {
+                const questionNumber = document.createElement('strong');
+                questionNumber.textContent = `Q${index + 1}. `;
+                questionNumber.setAttribute('data-qnum', 'true');
+                questionNumber.style.cssText = `
+                  font-weight: bold;
+                  color: #000 !important;
+                  font-size: 16pt;
+                  margin-right: 8px;
+                  opacity: 1 !important;
+                  display: inline;
+                  background: #fff !important;
+                `;
+                li.insertBefore(questionNumber, li.firstChild);
+              }
             }
           });
         });
-        
+
         const unorderedLists = container.querySelectorAll('ul');
         unorderedLists.forEach(ul => {
           (ul as HTMLElement).style.cssText = `
             margin: 15px 0;
             padding-left: 25px;
-            color: #000000 !important;
-            background: transparent !important;
+            color: #000 !important;
+            background: #fff !important;
             page-break-inside: auto;
             font-family: Arial, Helvetica, sans-serif;
+            font-size: 15pt;
+            opacity: 1 !important;
+            display: block;
           `;
-          
           const listItems = ul.querySelectorAll('li');
           listItems.forEach(li => {
             (li as HTMLElement).style.cssText = `
               margin: 10px 0;
               line-height: 1.8;
-              color: #000000 !important;
-              background: transparent !important;
+              color: #000 !important;
+              background: #fff !important;
               list-style-type: disc;
               page-break-inside: avoid;
-              font-size: 14pt;
+              font-size: 15pt;
               font-family: Arial, Helvetica, sans-serif;
+              opacity: 1 !important;
+              display: block;
             `;
           });
         });
-        
-        // Style strong/bold text
+
+        // Strong/bold text
         const strongElements = container.querySelectorAll('strong, b');
         strongElements.forEach(strong => {
           (strong as HTMLElement).style.cssText = `
             font-weight: bold;
-            color: #000000 !important;
-            background: transparent !important;
-            font-size: 14pt;
+            color: #000 !important;
+            background: #fff !important;
+            font-size: 15pt;
             font-family: Arial, Helvetica, sans-serif;
+            opacity: 1 !important;
+            display: inline;
           `;
         });
-        
-        // Style code blocks if any
+
+        // Code blocks
         const codeBlocks = container.querySelectorAll('code, pre');
         codeBlocks.forEach(code => {
           (code as HTMLElement).style.cssText = `
             font-family: 'Courier New', monospace;
             background-color: #f8f8f8 !important;
-            color: #000000 !important;
+            color: #000 !important;
             padding: 8px 10px;
             border-radius: 4px;
             font-size: 13pt;
-            border: 1px solid #cccccc;
-            page-break-inside: avoid;
+            border: 1.5px solid #ccc;
+            opacity: 1 !important;
             margin: 8px 0;
+            display: block;
           `;
         });
-        
-        // Style tables if any
+
+        // Tables
         const tables = container.querySelectorAll('table');
         tables.forEach(table => {
           (table as HTMLElement).style.cssText = `
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
-            color: #000000 !important;
-            background: #ffffff !important;
+            color: #000 !important;
+            background: #fff !important;
             page-break-inside: avoid;
             font-family: Arial, Helvetica, sans-serif;
+            font-size: 15pt;
+            opacity: 1 !important;
+            display: block;
           `;
-          
           const cells = table.querySelectorAll('td, th');
           cells.forEach(cell => {
             (cell as HTMLElement).style.cssText = `
-              border: 2px solid #000000;
+              border: 2px solid #000;
               padding: 10px;
               text-align: left;
-              color: #000000 !important;
-              background: #ffffff !important;
-              font-size: 14pt;
+              color: #000 !important;
+              background: #fff !important;
+              font-size: 15pt;
               font-family: Arial, Helvetica, sans-serif;
+              opacity: 1 !important;
+              display: table-cell;
             `;
           });
         });
       };
-      
+
       applyPDFStyles(contentClone);
-      
-      // Add enhanced instructions for question papers
+
+      // Append in this order for proper rendering: header, instructions/content, footer
+      pdfContainer.appendChild(header);
+
       if (type === 'question') {
+        // Only add instructions for questions, not solutions
         const instructions = document.createElement('div');
         instructions.style.cssText = `
           margin: 25px 0;
           padding: 20px;
-          border: 2px solid #000000;
+          border: 2px solid #000;
           background-color: #f9f9f9 !important;
-          font-size: 13pt;
-          color: #000000 !important;
+          font-size: 14pt;
+          color: #000 !important;
           page-break-inside: avoid;
           font-family: Arial, Helvetica, sans-serif;
+          display: block;
+          opacity: 1 !important;
         `;
         instructions.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 15px; text-align: center; color: #000000 !important; font-size: 16pt;">
+          <div style="font-weight: bold; margin-bottom: 15px; text-align: center; color: #000 !important; font-size: 17pt;">
             GENERAL INSTRUCTIONS
           </div>
-          <div style="line-height: 1.7; color: #000000 !important;">
+          <div style="line-height: 1.75; color: #000 !important;">
             <div style="margin-bottom: 8px;">• Read all questions carefully before attempting.</div>
             <div style="margin-bottom: 8px;">• Answer all questions as they appear.</div>
             <div style="margin-bottom: 8px;">• Write clearly and legibly in blue or black ink.</div>
@@ -286,39 +320,40 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         `;
         pdfContainer.appendChild(instructions);
       }
-      
-      pdfContainer.appendChild(header);
+
       pdfContainer.appendChild(contentClone);
-      
-      // Add enhanced footer
+
+      // Enhanced visible footer
       const footer = document.createElement('div');
       footer.style.cssText = `
         margin-top: 40px;
         padding-top: 20px;
-        border-top: 2px solid #000000;
+        border-top: 2px solid #000;
         text-align: center;
-        font-size: 12pt;
-        color: #000000 !important;
-        background: transparent !important;
+        font-size: 13pt;
+        color: #000 !important;
+        background: #fff !important;
         page-break-inside: avoid;
         font-family: Arial, Helvetica, sans-serif;
         font-weight: bold;
+        opacity: 1 !important;
+        display: block;
       `;
-      footer.innerHTML = `<span style="color: #000000 !important;">Generated on ${formattedDate} • ${type === 'question' ? 'Question Paper' : 'Solutions'} • Page</span>`;
+      footer.innerHTML = `<span>Generated on ${new Date().toLocaleDateString('en-GB')} • ${type === 'question' ? 'Question Paper' : 'Solutions'} • Page</span>`;
       pdfContainer.appendChild(footer);
-      
+
       document.body.appendChild(pdfContainer);
 
       // Wait for layout to be ready
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Generate high-quality PDF with better capture settings
+      // Render the PDF clearly and at proper scale
       const canvas = await html2canvas(pdfContainer, {
-        scale: 3, // Higher scale for better quality
+        scale: 3,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: Math.round(210 * 3.78), // A4 width in pixels
+        backgroundColor: '#fff',
+        width: Math.round(210 * 3.78),
         height: Math.max(pdfContainer.scrollHeight * 3, Math.round(297 * 3.78)),
         scrollX: 0,
         scrollY: 0,
@@ -329,56 +364,52 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           if (clonedContainer) {
             clonedContainer.style.height = 'auto';
             clonedContainer.style.minHeight = 'auto';
-            // Ensure all text remains black and readable
-            const allElements = clonedDoc.querySelectorAll('*');
-            allElements.forEach(el => {
-              const element = el as HTMLElement;
-              if (element.style) {
-                element.style.color = '#000000';
-                element.style.backgroundColor = 'transparent';
-                element.style.fontFamily = 'Arial, Helvetica, sans-serif';
-              }
+            clonedContainer.style.opacity = '1 !important';
+            clonedContainer.style.display = 'block !important';
+            // Set all text visible/black
+            const allEl = clonedDoc.querySelectorAll('*');
+            allEl.forEach(el => {
+              const elem = el as HTMLElement;
+              elem.style.color = '#000';
+              elem.style.backgroundColor = '#fff';
+              elem.style.opacity = '1 !important';
+              elem.style.display = 'block';
             });
           }
         }
       });
-      
+
       const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = 297; // A4 height in mm
+      const pdfWidth = 210;
+      const pdfHeight = 297;
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
+
       let heightLeft = imgHeight;
       let position = 0;
       let pageNumber = 1;
 
-      // Add first page
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, Math.min(imgHeight, pdfHeight), '', 'FAST');
-      
-      // Add page number
-      pdf.setFontSize(10);
-      pdf.text(`Page ${pageNumber}`, pdfWidth - 20, pdfHeight - 10);
-      
+      pdf.setFontSize(12);
+      pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
+
       heightLeft -= pdfHeight;
 
-      // Add additional pages if needed
       while (heightLeft > 0) {
         position = -heightLeft;
         pdf.addPage();
         pageNumber++;
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
-        pdf.setFontSize(10);
-        pdf.text(`Page ${pageNumber}`, pdfWidth - 20, pdfHeight - 10);
+        pdf.setFontSize(12);
+        pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
         heightLeft -= pdfHeight;
       }
 
-      // Clean up
       document.body.removeChild(pdfContainer);
-      
+
       // Generate enhanced filename
+      const currentDate = new Date();
       const timestamp = currentDate.toISOString().split('T')[0];
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filePrefix = type === 'solution' ? 'solutions' : 'question_paper';
