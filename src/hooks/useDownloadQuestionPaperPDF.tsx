@@ -4,6 +4,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { QuestionPaperPDFLayoutProps } from "../components/QuestionPaperPDFLayout";
 import ReactDOM from "react-dom/client";
+import { unmountComponentAtNode } from "react-dom";
 import React from "react";
 import QuestionPaperPDFLayout from "../components/QuestionPaperPDFLayout";
 
@@ -87,7 +88,7 @@ export function useDownloadQuestionPaperPDF() {
       } catch (err) {
         console.error('Error generating PDF:', err);
       } finally {
-        ReactDOM.unmountComponentAtNode(container);
+        unmountComponentAtNode(container); // <-- use from react-dom
         document.body.removeChild(container);
       }
     },
