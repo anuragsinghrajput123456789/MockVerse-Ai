@@ -3,6 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import QuestionPaperHeader from "./QuestionPaperHeader";
+import QuestionPaperMarkdownContent from "./QuestionPaperMarkdownContent";
 
 interface QuestionPaperDisplayProps {
   content: string;
@@ -424,146 +426,18 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-b border-gray-200 dark:border-gray-600">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              {title}
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-              {type === 'question' ? 'Question Paper' : 'Solutions'} • Generated on {new Date().toLocaleDateString()}
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={downloadPDF}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2 shadow-md"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Download PDF
-            </button>
-            
-            {onGenerateSolutions && type === 'question' && (
-              <button
-                onClick={onGenerateSolutions}
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-md"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {loading ? 'Generating...' : 'Generate Solutions'}
-              </button>
-            )}
-            
-            {onStartAnswering && type === 'question' && (
-              <button
-                onClick={onStartAnswering}
-                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-all text-sm font-medium flex items-center gap-2 shadow-md"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                Start Answering
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-      
+      <QuestionPaperHeader
+        title={title}
+        type={type}
+        loading={loading}
+        onGenerateSolutions={onGenerateSolutions}
+        onStartAnswering={onStartAnswering}
+        onDownloadPDF={downloadPDF}
+      />
       {/* Content Section */}
       <div className="p-6">
-        <div 
-          id={`${type}-paper-content`}
-          className="prose prose-lg max-w-none dark:prose-invert"
-        >
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            components={{
-              h1: ({children}) => (
-                <h1 className="text-2xl font-bold text-center border-b-2 border-gray-300 dark:border-gray-600 pb-3 mb-6 text-gray-900 dark:text-white">
-                  {children}
-                </h1>
-              ),
-              h2: ({children}) => (
-                <h2 className="text-xl font-bold text-center border-b border-gray-200 dark:border-gray-600 pb-2 mb-4 text-gray-800 dark:text-gray-100">
-                  {children}
-                </h2>
-              ),
-              h3: ({children}) => (
-                <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">
-                  {children}
-                </h3>
-              ),
-              p: ({children}) => (
-                <p className="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed text-justify">
-                  {children}
-                </p>
-              ),
-              ol: ({children}) => (
-                <ol className="list-decimal list-outside space-y-4 ml-6 mb-6">
-                  {children}
-                </ol>
-              ),
-              ul: ({children}) => (
-                <ul className="list-disc list-outside space-y-2 ml-6 mb-4">
-                  {children}
-                </ul>
-              ),
-              li: ({children}) => (
-                <li className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed pl-2">
-                  {children}
-                </li>
-              ),
-              strong: ({children}) => (
-                <strong className="font-bold text-gray-900 dark:text-white">
-                  {children}
-                </strong>
-              ),
-              em: ({children}) => (
-                <em className="italic text-gray-800 dark:text-gray-200">
-                  {children}
-                </em>
-              ),
-              code: ({children}) => (
-                <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm font-mono text-gray-800 dark:text-gray-200">
-                  {children}
-                </code>
-              ),
-              pre: ({children}) => (
-                <pre className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg overflow-x-auto mb-4">
-                  {children}
-                </pre>
-              ),
-              blockquote: ({children}) => (
-                <blockquote className="border-l-4 border-blue-500 pl-4 my-4 italic text-gray-600 dark:text-gray-400">
-                  {children}
-                </blockquote>
-              ),
-              table: ({children}) => (
-                <div className="overflow-x-auto mb-4">
-                  <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600">
-                    {children}
-                  </table>
-                </div>
-              ),
-              th: ({children}) => (
-                <th className="border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-4 py-2 text-left font-semibold">
-                  {children}
-                </th>
-              ),
-              td: ({children}) => (
-                <td className="border border-gray-300 dark:border-gray-600 px-4 py-2">
-                  {children}
-                </td>
-              )
-            }}
-          >
-            {content}
-          </ReactMarkdown>
+        <div id={`${type}-paper-content`}>
+          <QuestionPaperMarkdownContent content={content} />
         </div>
       </div>
     </div>
