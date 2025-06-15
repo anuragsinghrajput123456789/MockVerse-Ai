@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PaperFormData } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -9,6 +8,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+const mathematicsChapters = ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'];
+const physicsChapters = ['Kinematics', 'Laws of Motion', 'Work, Energy and Power', 'Thermodynamics', 'Optics'];
+const chemistryChapters = ['Structure of Atom', 'Chemical Bonding', 'States of Matter', 'Thermodynamics', 'Organic Chemistry'];
+const biologyChapters = ['The Living World', 'Cell Structure and Function', 'Human Physiology', 'Genetics and Evolution'];
+const historyChapters = ['The Indus Valley Civilization', 'The Mughal Empire', 'The Indian Freedom Struggle'];
+const geographyChapters = ['The Earth in the Solar System', 'Our Country - India', 'Agriculture'];
+const englishChapters = ['Grammar', 'Reading Comprehension', 'Writing Skills', 'Literature'];
+const economicsChapters = ['Introduction to Economics', 'Consumer\'s Equilibrium and Demand', 'National Income'];
+const politicalScienceChapters = ['What is Democracy? Why Democracy?', 'Constitutional Design', 'Working of Institutions'];
+
+const scienceChapters = [...new Set([...physicsChapters, ...chemistryChapters, ...biologyChapters])];
+const socialScienceChapters = [...historyChapters, ...geographyChapters, ...economicsChapters, ...politicalScienceChapters];
+
+const chapterMap: Record<string, string[]> = {
+  'mathematics': mathematicsChapters,
+  'math': mathematicsChapters,
+  'physics': physicsChapters,
+  'chemistry': chemistryChapters,
+  'biology': biologyChapters,
+  'science': scienceChapters,
+  'history': historyChapters,
+  'geography': geographyChapters,
+  'english': englishChapters,
+  'economics': economicsChapters,
+  'political science': politicalScienceChapters,
+  'social science': socialScienceChapters,
+};
 
 interface PaperFormProps {
   onSubmit: (data: PaperFormData) => void;
@@ -33,19 +60,6 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
   const [customChapters, setCustomChapters] = useLocalStorage<string[]>('customChapters', []);
   const [newChapter, setNewChapter] = useState('');
   
-  const chapterMap: Record<string, string[]> = {
-    'mathematics': ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'],
-    'math': ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'],
-    'physics': ['Kinematics', 'Laws of Motion', 'Work, Energy and Power', 'Thermodynamics', 'Optics'],
-    'chemistry': ['Structure of Atom', 'Chemical Bonding', 'States of Matter', 'Thermodynamics', 'Organic Chemistry'],
-    'biology': ['The Living World', 'Cell Structure and Function', 'Human Physiology', 'Genetics and Evolution'],
-    'history': ['The Indus Valley Civilization', 'The Mughal Empire', 'The Indian Freedom Struggle'],
-    'geography': ['The Earth in the Solar System', 'Our Country - India', 'Agriculture'],
-    'english': ['Grammar', 'Reading Comprehension', 'Writing Skills', 'Literature'],
-    'economics': ['Introduction to Economics', 'Consumer\'s Equilibrium and Demand', 'National Income'],
-    'political science': ['What is Democracy? Why Democracy?', 'Constitutional Design', 'Working of Institutions'],
-  };
-
   useEffect(() => {
     const subjectKey = formData.subject.trim().toLowerCase();
     const newDefaultChapters = chapterMap[subjectKey] || [];
