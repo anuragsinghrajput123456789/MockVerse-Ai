@@ -27,6 +27,7 @@ const Index = () => {
   const [loading, setLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   
   const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
   
@@ -34,16 +35,18 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
+      setSession(session);
+      setCheckingSession(false);
     });
-
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!checkingSession && !session) {
+      navigate('/auth');
+    }
+  }, [session, checkingSession, navigate]);
 
   useEffect(() => {
     if (session) {
@@ -241,13 +244,6 @@ const Index = () => {
     if (error) {
       toast({ title: "Logout Error", description: error.message, variant: "destructive" });
     } else {
-      setSession(null);
-      setCurrentPaper(null);
-      setSolutions('');
-      setEvaluationResult('');
-      setPaperHistory([]);
-      setActiveTab('generate');
-      navigate('/');
       toast({ title: "Logged Out", description: "You have been successfully logged out." });
     }
   };
@@ -287,6 +283,14 @@ const Index = () => {
         return null;
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <ThemeProvider>
