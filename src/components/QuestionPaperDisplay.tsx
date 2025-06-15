@@ -83,7 +83,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             padding: 10px 18px 10px 20px; 
             margin-bottom: 13px;
             font-size: 11.8pt;
-            line-height: 1.7;
+            line-height: 1.8;
             background: #fff;
             font-family: 'Times New Roman', Times, serif;
             "
@@ -147,12 +147,12 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       // Paragraphs
       contentClone.querySelectorAll('p').forEach(p => {
         (p as HTMLElement).style.cssText = `
-          margin: 0 0 7px 0;
+          margin: 0 0 10px 0;
           font-size:13pt;
           text-align: left;
           color: #000;
           background: #fff;
-          line-height: 1.76;
+          line-height: 1.8;
         `;
       });
       // Lists: Section titles and questions/choices
@@ -163,13 +163,13 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         ol.querySelectorAll('li').forEach((li, idx) => {
           (li as HTMLElement).style.cssText = `
             font-size:13pt;
-            margin-bottom:8px;
+            margin-bottom:12px;
             padding-bottom:0px;
             color:#000;
             background:#fff;
             font-family:'Times New Roman', Times, serif;
             text-align:left;
-            line-height:1.78;
+            line-height:1.8;
             padding-left:1.5px;
             position:relative;
             border:none;
@@ -184,10 +184,11 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         ul.querySelectorAll('li').forEach((li, idx) => {
           (li as HTMLElement).style.cssText = `
             font-size:12.7pt;
-            margin:3px 0 3px 0;
+            margin:5px 0 5px 0;
             padding-left:1.5px;
             font-family:'Times New Roman', Times, serif;
             color:#000;
+            line-height: 1.6;
           `;
         });
       });
