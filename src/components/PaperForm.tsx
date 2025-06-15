@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PaperFormData } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -8,34 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const mathematicsChapters = ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'];
-const physicsChapters = ['Kinematics', 'Laws of Motion', 'Work, Energy and Power', 'Thermodynamics', 'Optics'];
-const chemistryChapters = ['Structure of Atom', 'Chemical Bonding', 'States of Matter', 'Thermodynamics', 'Organic Chemistry'];
-const biologyChapters = ['The Living World', 'Cell Structure and Function', 'Human Physiology', 'Genetics and Evolution'];
-const historyChapters = ['The Indus Valley Civilization', 'The Mughal Empire', 'The Indian Freedom Struggle'];
-const geographyChapters = ['The Earth in the Solar System', 'Our Country - India', 'Agriculture'];
-const englishChapters = ['Grammar', 'Reading Comprehension', 'Writing Skills', 'Literature'];
-const economicsChapters = ['Introduction to Economics', 'Consumer\'s Equilibrium and Demand', 'National Income'];
-const politicalScienceChapters = ['What is Democracy? Why Democracy?', 'Constitutional Design', 'Working of Institutions'];
-
-const scienceChapters = [...new Set([...physicsChapters, ...chemistryChapters, ...biologyChapters])];
-const socialScienceChapters = [...historyChapters, ...geographyChapters, ...economicsChapters, ...politicalScienceChapters];
-
-const chapterMap: Record<string, string[]> = {
-  'mathematics': mathematicsChapters,
-  'math': mathematicsChapters,
-  'physics': physicsChapters,
-  'chemistry': chemistryChapters,
-  'biology': biologyChapters,
-  'science': scienceChapters,
-  'history': historyChapters,
-  'geography': geographyChapters,
-  'english': englishChapters,
-  'economics': economicsChapters,
-  'political science': politicalScienceChapters,
-  'social science': socialScienceChapters,
-};
+import { chapterMap } from '../data/chapters';
+import ChapterSelection from './ChapterSelection';
 
 interface PaperFormProps {
   onSubmit: (data: PaperFormData) => void;
@@ -71,8 +46,6 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
       chapters: prev.chapters.filter(c => newDefaultChapters.includes(c) || customChapters.includes(c))
     }));
   }, [formData.subject, customChapters]);
-
-  const availableChapters = [...defaultChapters, ...customChapters];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,90 +215,16 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Add Custom Chapter
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newChapter}
-              onChange={(e) => setNewChapter(e.target.value)}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Enter chapter name"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddCustomChapter();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={handleAddCustomChapter}
-              className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
-            >
-              Add
-            </button>
-          </div>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Chapters * (Select multiple)
-          </label>
-          <div className="space-y-4 max-h-60 overflow-y-auto p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-            {defaultChapters.length > 0 && (
-              <div>
-                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-2">Default Chapters</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {defaultChapters.map((chapter) => (
-                    <div key={chapter} className="flex items-center space-x-2">
-                      <label className="flex items-center space-x-2 cursor-pointer flex-1">
-                        <input
-                          type="checkbox"
-                          checked={formData.chapters.includes(chapter)}
-                          onChange={() => handleChapterToggle(chapter)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{chapter}</span>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {customChapters.length > 0 && (
-              <div>
-                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-2">Custom Chapters</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {customChapters.map((chapter) => (
-                    <div key={chapter} className="flex items-center space-x-2">
-                      <label className="flex items-center space-x-2 cursor-pointer flex-1">
-                        <input
-                          type="checkbox"
-                          checked={formData.chapters.includes(chapter)}
-                          onChange={() => handleChapterToggle(chapter)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{chapter}</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCustomChapter(chapter)}
-                        className="text-red-500 hover:text-red-700 text-sm"
-                        title="Remove custom chapter"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <ChapterSelection
+          defaultChapters={defaultChapters}
+          customChapters={customChapters}
+          selectedChapters={formData.chapters}
+          onChapterToggle={handleChapterToggle}
+          onRemoveCustomChapter={handleRemoveCustomChapter}
+          onAddCustomChapter={handleAddCustomChapter}
+          newChapter={newChapter}
+          setNewChapter={setNewChapter}
+        />
         
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -366,3 +265,4 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
 };
 
 export default PaperForm;
+
