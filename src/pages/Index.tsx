@@ -25,7 +25,7 @@ const Index = () => {
   const [evaluationResult, setEvaluationResult] = useState<string>('');
   const [logoutLoading, setLogoutLoading] = useState(false);
   
-  const { session, checkingSession } = useAuthSession();
+  const { session } = useAuthSession();
   const { data: paperHistory = [], isLoading: historyLoading } = usePaperHistory(session);
   const { generatePaperMutation, generateSolutionsMutation, evaluateAnswersMutation } = usePaperActions(session);
   const { toast } = useToast();
