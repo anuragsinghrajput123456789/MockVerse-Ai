@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
@@ -17,8 +18,11 @@ import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../se
 import { QuestionPaper, Resource, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
 import AuthStatus from '../components/AuthStatus';
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const Index = () => {
+  const { session, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('generate');
   const [currentPaper, setCurrentPaper] = useState<QuestionPaper | null>(null);
   const [solutions, setSolutions] = useState<string>('');
@@ -30,6 +34,18 @@ const Index = () => {
   const [resources, setResources] = useLocalStorage<Resource[]>('resources', []);
   
   const { toast } = useToast();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/auth" replace />;
+  }
 
   const tabs = [
     { id: 'generate', label: 'Generate', icon: '✨' },

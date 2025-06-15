@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { PaperFormData } from '../types';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface PaperFormProps {
   onSubmit: (data: PaperFormData) => void;
@@ -26,7 +27,7 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
     'English Literature', 'Grammar', 'Economics', 'Political Science'
   ]);
 
-  const [customChapters, setCustomChapters] = useState<string[]>([]);
+  const [customChapters, setCustomChapters] = useLocalStorage<string[]>('customChapters', []);
   const [newChapter, setNewChapter] = useState('');
 
   const availableChapters = [...defaultChapters, ...customChapters];
