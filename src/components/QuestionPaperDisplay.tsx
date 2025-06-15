@@ -28,359 +28,238 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
     if (!element) return;
 
     try {
-      // Declare currentDate ONCE at the top of try block
+      // PDF Layout system based on reference image
       const currentDate = new Date();
       const formattedDate = currentDate.toLocaleDateString('en-GB');
-      
-      // Create/prepare container for A4 PDF with highly visible/readable content
+
+      // Main container for strict A4 size and center
       const pdfContainer = document.createElement('div');
       pdfContainer.style.cssText = `
         width: 210mm;
         min-height: 297mm;
-        padding: 18mm 15mm;
-        background: #fff !important;
-        font-family: 'Arial', 'Helvetica', sans-serif;
-        font-size: 15pt;
-        line-height: 1.8;
-        color: #000 !important;
-        display: block;
+        margin: 0 auto;
+        background: #fff;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 13pt;
+        color: #000;
+        box-sizing: border-box;
+        padding: 18mm 15mm 20mm 15mm;
         position: absolute;
         left: -9999px;
         top: 0;
-        opacity: 1 !important;
-        z-index: 2147483647 !important;
-        box-sizing: border-box;
-        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        border: none;
       `;
-      
-      // Add professional header with better spacing
+
+      // Main header (as in screenshot)
       const header = document.createElement('div');
       header.style.cssText = `
-        text-align: center;
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 3px solid #000000;
-        color: #000000 !important;
-        page-break-inside: avoid;
-      `;
-      
-      const timeAllowed = type === 'question' ? '3 Hours' : 'Reference Material';
-      
-      header.innerHTML = `
-        <div style="margin-bottom: 15px; font-size: 18pt; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; color: #000000 !important;">
-          ${title}
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; font-size: 12pt; font-weight: bold; color: #000000 !important;">
-          <span style="color: #000000 !important;">Date: ${formattedDate}</span>
-          <span style="color: #000000 !important;">Time: ${timeAllowed}</span>
-          <span style="color: #000000 !important;">Type: ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>
-        </div>
-      `;
-      
-      // Prepare inner content
-      const contentClone = element.cloneNode(true) as HTMLElement;
-      contentClone.style.cssText = `
-        font-family: 'Arial', 'Helvetica', sans-serif;
-        color: #000 !important;
-        line-height: 1.8;
-        font-size: 15pt;
-        background: #fff !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border: 1.5px solid #222;
+        padding: 0;
         width: 100%;
-        overflow: visible;
-        display: block !important;
-        opacity: 1 !important;
+        margin-bottom: 13px;
+        background: #fff;
+      `;
+      header.innerHTML = `
+        <div style="padding:16px 0 0 0;font-weight:700;font-size:19pt;letter-spacing:1px;text-align:center;text-transform:uppercase;">
+          QUESTION PAPER
+        </div>
+        <div style="padding:0 0 13px 0;text-align:center;font-size:11.5pt;">
+          SUBJECT: <b>${title}</b> &nbsp;&nbsp;|&nbsp;&nbsp; CLASS: &nbsp;&nbsp;|&nbsp;&nbsp; MAX MARKS: 100 &nbsp;&nbsp;|&nbsp;&nbsp; TIME: 3 Hours
+        </div>
       `;
 
-      // Improved: make sure every element is VISIBLE!
-      const applyPDFStyles = (container: HTMLElement) => {
-        const allElements = container.querySelectorAll('*');
-        allElements.forEach(el => {
-          const elem = el as HTMLElement;
-          elem.style.color = '#000 !important';
-          elem.style.backgroundColor = '#fff !important';
-          elem.style.fontFamily = 'Arial, Helvetica, sans-serif';
-          elem.style.opacity = '1 !important';
-          elem.style.display = 'block';
-        });
-
-        // Headings
-        const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-        headings.forEach((heading) => {
-          const level = parseInt(heading.tagName[1]);
-          (heading as HTMLElement).style.cssText = `
-            color: #000 !important;
-            background: #fff !important;
-            font-weight: bold;
-            text-align: center;
-            margin: ${level === 1 ? '25px' : '20px'} 0 ${level === 1 ? '20px' : '15px'} 0;
-            font-size: ${level === 1 ? '20pt' : level === 2 ? '18pt' : '16pt'};
-            font-family: Arial, Helvetica, sans-serif;
-            ${level <= 2 ? 'border-bottom: 2px solid #000; padding-bottom: 8px;' : ''}
-            page-break-after: avoid;
-            page-break-inside: avoid;
-            opacity: 1 !important;
-            display: block;
-          `;
-        });
-
-        // Paragraphs
-        const paragraphs = container.querySelectorAll('p');
-        paragraphs.forEach(p => {
-          (p as HTMLElement).style.cssText = `
-            color: #000 !important;
-            background: #fff !important;
-            margin: 14px 0;
-            text-align: justify;
-            line-height: 1.8;
-            font-size: 15pt;
-            font-family: Arial, Helvetica, sans-serif;
-            opacity: 1 !important;
-            display: block;
-            orphans: 2;
-            widows: 2;
-            page-break-inside: avoid;
-          `;
-        });
-
-        // Ordered/Unordered lists
-        const orderedLists = container.querySelectorAll('ol');
-        orderedLists.forEach(ol => {
-          (ol as HTMLElement).style.cssText = `
-            margin: 20px 0;
-            padding-left: 30px;
-            counter-reset: question-counter;
-            color: #000 !important;
-            background: #fff !important;
-            page-break-inside: auto;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 15pt;
-            opacity: 1 !important;
-            display: block;
-          `;
-          const listItems = ol.querySelectorAll('li');
-          listItems.forEach((li, index) => {
-            (li as HTMLElement).style.cssText = `
-              margin: 20px 0;
-              padding: 12px 0;
-              line-height: 1.8;
-              color: #000 !important;
-              background: #fff !important;
-              position: relative;
-              page-break-inside: avoid;
-              break-inside: avoid;
-              font-size: 15pt;
-              font-family: Arial, Helvetica, sans-serif;
-              font-weight: normal;
-              opacity: 1 !important;
-              display: block;
-            `;
-            // Improved question numbering
-            if (type === 'question') {
-              const hasQuestion = li.querySelector('strong[data-qnum]');
-              if (!hasQuestion) {
-                const questionNumber = document.createElement('strong');
-                questionNumber.textContent = `Q${index + 1}. `;
-                questionNumber.setAttribute('data-qnum', 'true');
-                questionNumber.style.cssText = `
-                  font-weight: bold;
-                  color: #000 !important;
-                  font-size: 16pt;
-                  margin-right: 8px;
-                  opacity: 1 !important;
-                  display: inline;
-                  background: #fff !important;
-                `;
-                li.insertBefore(questionNumber, li.firstChild);
-              }
-            }
-          });
-        });
-
-        const unorderedLists = container.querySelectorAll('ul');
-        unorderedLists.forEach(ul => {
-          (ul as HTMLElement).style.cssText = `
-            margin: 15px 0;
-            padding-left: 25px;
-            color: #000 !important;
-            background: #fff !important;
-            page-break-inside: auto;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 15pt;
-            opacity: 1 !important;
-            display: block;
-          `;
-          const listItems = ul.querySelectorAll('li');
-          listItems.forEach(li => {
-            (li as HTMLElement).style.cssText = `
-              margin: 10px 0;
-              line-height: 1.8;
-              color: #000 !important;
-              background: #fff !important;
-              list-style-type: disc;
-              page-break-inside: avoid;
-              font-size: 15pt;
-              font-family: Arial, Helvetica, sans-serif;
-              opacity: 1 !important;
-              display: block;
-            `;
-          });
-        });
-
-        // Strong/bold text
-        const strongElements = container.querySelectorAll('strong, b');
-        strongElements.forEach(strong => {
-          (strong as HTMLElement).style.cssText = `
-            font-weight: bold;
-            color: #000 !important;
-            background: #fff !important;
-            font-size: 15pt;
-            font-family: Arial, Helvetica, sans-serif;
-            opacity: 1 !important;
-            display: inline;
-          `;
-        });
-
-        // Code blocks
-        const codeBlocks = container.querySelectorAll('code, pre');
-        codeBlocks.forEach(code => {
-          (code as HTMLElement).style.cssText = `
-            font-family: 'Courier New', monospace;
-            background-color: #f8f8f8 !important;
-            color: #000 !important;
-            padding: 8px 10px;
-            border-radius: 4px;
-            font-size: 13pt;
-            border: 1.5px solid #ccc;
-            opacity: 1 !important;
-            margin: 8px 0;
-            display: block;
-          `;
-        });
-
-        // Tables
-        const tables = container.querySelectorAll('table');
-        tables.forEach(table => {
-          (table as HTMLElement).style.cssText = `
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            color: #000 !important;
-            background: #fff !important;
-            page-break-inside: avoid;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 15pt;
-            opacity: 1 !important;
-            display: block;
-          `;
-          const cells = table.querySelectorAll('td, th');
-          cells.forEach(cell => {
-            (cell as HTMLElement).style.cssText = `
-              border: 2px solid #000;
-              padding: 10px;
-              text-align: left;
-              color: #000 !important;
-              background: #fff !important;
-              font-size: 15pt;
-              font-family: Arial, Helvetica, sans-serif;
-              opacity: 1 !important;
-              display: table-cell;
-            `;
-          });
-        });
-      };
-
-      applyPDFStyles(contentClone);
-
-      // Append in this order for proper rendering: header, instructions/content, footer
-      pdfContainer.appendChild(header);
-
-      if (type === 'question') {
-        // Only add instructions for questions, not solutions
-        const instructions = document.createElement('div');
-        instructions.style.cssText = `
-          margin: 25px 0;
-          padding: 20px;
-          border: 2px solid #000;
-          background-color: #f9f9f9 !important;
-          font-size: 14pt;
-          color: #000 !important;
-          page-break-inside: avoid;
-          font-family: Arial, Helvetica, sans-serif;
-          display: block;
-          opacity: 1 !important;
-        `;
-        instructions.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 15px; text-align: center; color: #000 !important; font-size: 17pt;">
-            GENERAL INSTRUCTIONS
-          </div>
-          <div style="line-height: 1.75; color: #000 !important;">
-            <div style="margin-bottom: 8px;">• Read all questions carefully before attempting.</div>
-            <div style="margin-bottom: 8px;">• Answer all questions as they appear.</div>
-            <div style="margin-bottom: 8px;">• Write clearly and legibly in blue or black ink.</div>
-            <div style="margin-bottom: 8px;">• Show all working steps where applicable.</div>
-            <div style="margin-bottom: 8px;">• Manage your time effectively across all sections.</div>
-            <div>• Review your answers before submission.</div>
+      // General Instructions box, strong single border
+      let instructionsBox = '';
+      if (type === "question") {
+        instructionsBox = `
+          <div style="
+            border: 1.5px solid #000; 
+            padding: 10px 18px 10px 20px; 
+            margin-bottom: 13px;
+            font-size: 11.8pt;
+            line-height: 1.7;
+            background: #fff;
+            font-family: 'Times New Roman', Times, serif;
+            "
+          >
+            <div style="font-weight: bolder; font-size: 13.5pt; margin-bottom:.5em;letter-spacing:0.2px;">GENERAL INSTRUCTIONS</div>
+            <ul style="margin:0;padding:0 0 0 20px;list-style-type:square;">
+              <li style="margin-bottom:3px;">Read all instructions carefully before attempting.</li>
+              <li style="margin-bottom:3px;">Attempt all questions unless instructed otherwise.</li>
+              <li style="margin-bottom:3px;">Write clearly. No extra sheets allowed unless asked.</li>
+              <li style="margin-bottom:3px;">Use only blue or black ink pen for writing answers.</li>
+              <li style="margin-bottom:3px;">Calculators/mobile phones are not permitted.</li>
+              <li style="">All questions carry equal marks unless specified.</li>
+            </ul>
           </div>
         `;
-        pdfContainer.appendChild(instructions);
       }
 
+      // Section header builder
+      const buildSectionHeading = (label: string) =>
+        `<div style="margin-top:15px;margin-bottom:10px;font-weight: bold;font-size:14.2pt;border:none;text-align:left;padding:0;letter-spacing:0.3px;">${label}</div>`;
+
+      // Parse markdown to HTML and adjust for MCQs and section layout
+      const contentClone = element.cloneNode(true) as HTMLElement;
+      // Remove survival Tailwind/Theme styles
+      contentClone.style.cssText = `
+        width: 100%;
+        background: #fff;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 13pt;
+        color: #000;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      `;
+
+      // ---- Cosmetic adjustments ----
+      // Style h1/h2/h3 (titles/sections)
+      contentClone.querySelectorAll('h1').forEach(h1 => {
+        (h1 as HTMLElement).style.cssText = `
+          font-family: 'Times New Roman', Times, serif;
+          font-weight: bold;
+          font-size: 15.8pt;
+          letter-spacing:0.4px;
+          margin: 17px 0 8px 0;
+          border: none;
+          text-align: left;
+          color: #000;
+          background: #fff;
+        `;
+      });
+      contentClone.querySelectorAll('h2').forEach(h2 => {
+        (h2 as HTMLElement).style.cssText = `
+          font-family:inherit;font-weight:bold;font-size:14pt;border:none;margin:13px 0 6px 0;text-align:left;color:#000;background:#fff;padding:0;
+        `;
+      });
+      contentClone.querySelectorAll('h3').forEach(h3 => {
+        (h3 as HTMLElement).style.cssText = `
+          font-family:inherit;font-weight:bold;font-size:13pt;border:none;margin:10px 0 6px 0;text-align:left;color:#000;background:#fff;padding:0;
+        `;
+      });
+      // Paragraphs
+      contentClone.querySelectorAll('p').forEach(p => {
+        (p as HTMLElement).style.cssText = `
+          margin: 0 0 7px 0;
+          font-size:13pt;
+          text-align: left;
+          color: #000;
+          background: #fff;
+          line-height: 1.76;
+        `;
+      });
+      // Lists: Section titles and questions/choices
+      contentClone.querySelectorAll('ol').forEach(ol => {
+        (ol as HTMLElement).style.cssText = `
+          margin-top:8px;margin-bottom:8px;padding-left:25px;
+        `;
+        ol.querySelectorAll('li').forEach((li, idx) => {
+          (li as HTMLElement).style.cssText = `
+            font-size:13pt;
+            margin-bottom:8px;
+            padding-bottom:0px;
+            color:#000;
+            background:#fff;
+            font-family:'Times New Roman', Times, serif;
+            text-align:left;
+            line-height:1.78;
+            padding-left:1.5px;
+            position:relative;
+            border:none;
+          `;
+        });
+      });
+      contentClone.querySelectorAll('ul').forEach(ul => {
+        (ul as HTMLElement).style.cssText = `
+          padding-left:20px;margin-top:4px;margin-bottom:7px;
+          list-style-type: lower-alpha;
+        `;
+        ul.querySelectorAll('li').forEach((li, idx) => {
+          (li as HTMLElement).style.cssText = `
+            font-size:12.7pt;
+            margin:3px 0 3px 0;
+            padding-left:1.5px;
+            font-family:'Times New Roman', Times, serif;
+            color:#000;
+          `;
+        });
+      });
+      // Table
+      contentClone.querySelectorAll('table').forEach(table => {
+        (table as HTMLElement).style.cssText = `
+          width:100%;margin:11px 0 10px 0;border-collapse:collapse;border:1px solid #222;background:#fff;
+        `;
+        table.querySelectorAll('td,th').forEach(cell => {
+          (cell as HTMLElement).style.cssText = `
+            border:1px solid #222;padding:4px 7px;
+            font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;
+          `;
+        });
+      });
+      // Strong/Bold
+      contentClone.querySelectorAll('strong').forEach(str => {
+        (str as HTMLElement).style.cssText = "font-weight:bold;color:#000;background:#fff;font-family:inherit;font-size:inherit;";
+      });
+
+      // Remove extra spacing before footer
+      let footerMarginTop = 30;
+      // --- END cosmetic ---
+
+      // Build inner HTML for PDF assembly
+      // (header previously created)
+      pdfContainer.appendChild(header);
+
+      // General Instructions
+      if (instructionsBox) {
+        const instrDiv = document.createElement('div');
+        instrDiv.innerHTML = instructionsBox;
+        pdfContainer.appendChild(instrDiv.firstElementChild!);
+        footerMarginTop = 15;
+      }
+
+      // Main question content
       pdfContainer.appendChild(contentClone);
 
-      // Enhanced visible footer
+      // Footer (must be at the bottom, centered, smaller font)
       const footer = document.createElement('div');
       footer.style.cssText = `
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 2px solid #000;
         text-align: center;
-        font-size: 13pt;
-        color: #000 !important;
-        background: #fff !important;
-        page-break-inside: avoid;
-        font-family: Arial, Helvetica, sans-serif;
-        font-weight: bold;
-        opacity: 1 !important;
-        display: block;
+        width: 100%;
+        margin-top: ${footerMarginTop}px;
+        padding-top: 6px;
+        border-top: 1px solid #111;
+        font-size: 11pt;
+        color: #222;
+        background: #fff;
+        font-family: 'Times New Roman', Times, serif;
+        font-weight: normal;
       `;
-      footer.innerHTML = `<span>Generated on ${new Date().toLocaleDateString('en-GB')} • ${type === 'question' ? 'Question Paper' : 'Solutions'} • Page</span>`;
+      footer.innerHTML = `
+        Generated on ${formattedDate} | ${type === "question" ? "Question Paper" : "Solutions"} | Page
+      `;
       pdfContainer.appendChild(footer);
 
       document.body.appendChild(pdfContainer);
-
-      // Wait for layout to be ready
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Render the PDF clearly and at proper scale
+      await new Promise(resolve => setTimeout(resolve, 140));
+      
+      // --- Generate PDF using html2canvas & jsPDF ---
       const canvas = await html2canvas(pdfContainer, {
-        scale: 3,
+        scale: 2.5,
         useCORS: true,
-        allowTaint: true,
         backgroundColor: '#fff',
         width: Math.round(210 * 3.78),
-        height: Math.max(pdfContainer.scrollHeight * 3, Math.round(297 * 3.78)),
+        height: pdfContainer.scrollHeight,
         scrollX: 0,
         scrollY: 0,
         windowWidth: Math.round(210 * 3.78),
         windowHeight: Math.max(pdfContainer.scrollHeight, Math.round(297 * 3.78)),
-        onclone: (clonedDoc) => {
-          const clonedContainer = clonedDoc.querySelector('div') as HTMLElement;
-          if (clonedContainer) {
-            clonedContainer.style.height = 'auto';
-            clonedContainer.style.minHeight = 'auto';
-            clonedContainer.style.opacity = '1 !important';
-            clonedContainer.style.display = 'block !important';
-            // Set all text visible/black
-            const allEl = clonedDoc.querySelectorAll('*');
-            allEl.forEach(el => {
-              const elem = el as HTMLElement;
-              elem.style.color = '#000';
-              elem.style.backgroundColor = '#fff';
-              elem.style.opacity = '1 !important';
-              elem.style.display = 'block';
-            });
-          }
-        }
       });
 
       const imgData = canvas.toDataURL('image/png', 1.0);
@@ -395,7 +274,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       let pageNumber = 1;
 
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, Math.min(imgHeight, pdfHeight), '', 'FAST');
-      pdf.setFontSize(12);
+      pdf.setFontSize(10);
       pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
 
       heightLeft -= pdfHeight;
@@ -405,18 +284,17 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         pdf.addPage();
         pageNumber++;
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
-        pdf.setFontSize(12);
+        pdf.setFontSize(10);
         pdf.text(`Page ${pageNumber}`, pdfWidth - 24, pdfHeight - 10);
         heightLeft -= pdfHeight;
       }
 
       document.body.removeChild(pdfContainer);
 
-      // Generate enhanced filename
+      // Generate filename
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filePrefix = type === 'solution' ? 'solutions' : 'question_paper';
       const fileName = `${filePrefix}_${sanitizedTitle}_${currentDate.toISOString().split('T')[0]}.pdf`;
-      
       pdf.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
