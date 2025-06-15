@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -26,16 +27,16 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
     if (!element) return;
 
     try {
-      // Create a temporary container optimized for A4 PDF with better height handling
+      // Create a temporary container optimized for A4 PDF with much better readability
       const pdfContainer = document.createElement('div');
       pdfContainer.style.cssText = `
-        width: 210mm;
+        width: 190mm;
         min-height: auto;
-        padding: 20mm;
+        padding: 10mm 15mm;
         background: #ffffff !important;
-        font-family: 'Times New Roman', Georgia, serif;
-        font-size: 12pt;
-        line-height: 1.5;
+        font-family: 'Arial', 'Helvetica', sans-serif;
+        font-size: 14pt;
+        line-height: 1.8;
         color: #000000 !important;
         position: absolute;
         top: -50000px;
@@ -44,13 +45,13 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         overflow: visible;
       `;
       
-      // Add professional header
+      // Add professional header with better spacing
       const header = document.createElement('div');
       header.style.cssText = `
         text-align: center;
-        margin-bottom: 25px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #000000;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 3px solid #000000;
         color: #000000 !important;
         page-break-inside: avoid;
       `;
@@ -60,29 +61,29 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       const timeAllowed = type === 'question' ? '3 Hours' : 'Reference Material';
       
       header.innerHTML = `
-        <div style="margin-bottom: 10px; font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #000000 !important;">
+        <div style="margin-bottom: 15px; font-size: 18pt; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; color: #000000 !important;">
           ${title}
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 10pt; color: #000000 !important;">
-          <span style="color: #000000 !important;"><strong style="color: #000000 !important;">Date:</strong> ${formattedDate}</span>
-          <span style="color: #000000 !important;"><strong style="color: #000000 !important;">Time:</strong> ${timeAllowed}</span>
-          <span style="color: #000000 !important;"><strong style="color: #000000 !important;">Type:</strong> ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; font-size: 12pt; font-weight: bold; color: #000000 !important;">
+          <span style="color: #000000 !important;">Date: ${formattedDate}</span>
+          <span style="color: #000000 !important;">Time: ${timeAllowed}</span>
+          <span style="color: #000000 !important;">Type: ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>
         </div>
       `;
       
-      // Clone and optimize content for PDF
+      // Clone and optimize content for PDF with enhanced readability
       const contentClone = element.cloneNode(true) as HTMLElement;
       contentClone.style.cssText = `
-        font-family: 'Times New Roman', Georgia, serif;
+        font-family: 'Arial', 'Helvetica', sans-serif;
         color: #000000 !important;
-        line-height: 1.6;
-        font-size: 12pt;
+        line-height: 1.8;
+        font-size: 14pt;
         background: #ffffff !important;
         width: 100%;
         overflow: visible;
       `;
       
-      // Enhanced styling for better PDF appearance with forced colors
+      // Enhanced styling for much better PDF appearance
       const applyPDFStyles = (container: HTMLElement) => {
         // Force all elements to have black text on white background
         const allElements = container.querySelectorAll('*');
@@ -91,69 +92,84 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           element.style.color = '#000000 !important';
           element.style.backgroundColor = 'transparent !important';
           element.style.pageBreakInside = 'avoid';
+          element.style.fontFamily = 'Arial, Helvetica, sans-serif';
         });
         
-        // Style all headings
+        // Style all headings with larger, bold text
         const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-        headings.forEach((heading, index) => {
+        headings.forEach((heading) => {
           const level = parseInt(heading.tagName[1]);
           (heading as HTMLElement).style.cssText = `
             color: #000000 !important;
             background: transparent !important;
             font-weight: bold;
             text-align: center;
-            margin: ${level === 1 ? '20px' : '15px'} 0 ${level === 1 ? '15px' : '10px'} 0;
-            font-size: ${level === 1 ? '16pt' : level === 2 ? '14pt' : '13pt'};
-            ${level <= 2 ? 'border-bottom: 1px solid #000000; padding-bottom: 5px;' : ''}
+            margin: ${level === 1 ? '25px' : '20px'} 0 ${level === 1 ? '20px' : '15px'} 0;
+            font-size: ${level === 1 ? '20pt' : level === 2 ? '18pt' : '16pt'};
+            font-family: Arial, Helvetica, sans-serif;
+            ${level <= 2 ? 'border-bottom: 2px solid #000000; padding-bottom: 8px;' : ''}
             page-break-after: avoid;
             page-break-inside: avoid;
           `;
         });
         
-        // Style paragraphs
+        // Style paragraphs with better spacing and readability
         const paragraphs = container.querySelectorAll('p');
         paragraphs.forEach(p => {
           (p as HTMLElement).style.cssText = `
             color: #000000 !important;
             background: transparent !important;
-            margin: 8px 0;
+            margin: 12px 0;
             text-align: justify;
-            line-height: 1.6;
-            font-size: 12pt;
+            line-height: 1.8;
+            font-size: 14pt;
+            font-family: Arial, Helvetica, sans-serif;
             orphans: 2;
             widows: 2;
             page-break-inside: avoid;
           `;
         });
         
-        // Style lists with better formatting and page break handling
+        // Style ordered lists (questions) with much better formatting
         const orderedLists = container.querySelectorAll('ol');
         orderedLists.forEach(ol => {
           (ol as HTMLElement).style.cssText = `
-            margin: 12px 0;
-            padding-left: 25px;
+            margin: 20px 0;
+            padding-left: 30px;
             counter-reset: question-counter;
             color: #000000 !important;
             background: transparent !important;
             page-break-inside: auto;
+            font-family: Arial, Helvetica, sans-serif;
           `;
           
           const listItems = ol.querySelectorAll('li');
           listItems.forEach((li, index) => {
             (li as HTMLElement).style.cssText = `
-              margin: 15px 0;
-              padding: 8px 0;
-              line-height: 1.6;
+              margin: 20px 0;
+              padding: 12px 0;
+              line-height: 1.8;
               color: #000000 !important;
               background: transparent !important;
               position: relative;
               page-break-inside: avoid;
               break-inside: avoid;
+              font-size: 14pt;
+              font-family: Arial, Helvetica, sans-serif;
+              font-weight: normal;
             `;
             
-            // Add question numbering for question papers
+            // Add better question numbering
             if (type === 'question') {
-              (li as HTMLElement).style.counterIncrement = 'question-counter';
+              const questionNumber = document.createElement('strong');
+              questionNumber.textContent = `Q${index + 1}. `;
+              questionNumber.style.cssText = `
+                font-weight: bold;
+                color: #000000 !important;
+                font-size: 15pt;
+                margin-right: 8px;
+              `;
+              li.insertBefore(questionNumber, li.firstChild);
             }
           });
         });
@@ -161,22 +177,25 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         const unorderedLists = container.querySelectorAll('ul');
         unorderedLists.forEach(ul => {
           (ul as HTMLElement).style.cssText = `
-            margin: 12px 0;
-            padding-left: 20px;
+            margin: 15px 0;
+            padding-left: 25px;
             color: #000000 !important;
             background: transparent !important;
             page-break-inside: auto;
+            font-family: Arial, Helvetica, sans-serif;
           `;
           
           const listItems = ul.querySelectorAll('li');
           listItems.forEach(li => {
             (li as HTMLElement).style.cssText = `
-              margin: 8px 0;
-              line-height: 1.6;
+              margin: 10px 0;
+              line-height: 1.8;
               color: #000000 !important;
               background: transparent !important;
               list-style-type: disc;
               page-break-inside: avoid;
+              font-size: 14pt;
+              font-family: Arial, Helvetica, sans-serif;
             `;
           });
         });
@@ -188,6 +207,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             font-weight: bold;
             color: #000000 !important;
             background: transparent !important;
+            font-size: 14pt;
+            font-family: Arial, Helvetica, sans-serif;
           `;
         });
         
@@ -196,13 +217,14 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         codeBlocks.forEach(code => {
           (code as HTMLElement).style.cssText = `
             font-family: 'Courier New', monospace;
-            background-color: #f5f5f5 !important;
+            background-color: #f8f8f8 !important;
             color: #000000 !important;
-            padding: 4px 6px;
-            border-radius: 3px;
-            font-size: 11pt;
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-size: 13pt;
             border: 1px solid #cccccc;
             page-break-inside: avoid;
+            margin: 8px 0;
           `;
         });
         
@@ -212,20 +234,23 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           (table as HTMLElement).style.cssText = `
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
+            margin: 20px 0;
             color: #000000 !important;
             background: #ffffff !important;
             page-break-inside: avoid;
+            font-family: Arial, Helvetica, sans-serif;
           `;
           
           const cells = table.querySelectorAll('td, th');
           cells.forEach(cell => {
             (cell as HTMLElement).style.cssText = `
-              border: 1px solid #000000;
-              padding: 8px;
+              border: 2px solid #000000;
+              padding: 10px;
               text-align: left;
               color: #000000 !important;
               background: #ffffff !important;
+              font-size: 14pt;
+              font-family: Arial, Helvetica, sans-serif;
             `;
           });
         });
@@ -233,26 +258,30 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       
       applyPDFStyles(contentClone);
       
-      // Add instructions for question papers
+      // Add enhanced instructions for question papers
       if (type === 'question') {
         const instructions = document.createElement('div');
         instructions.style.cssText = `
-          margin: 20px 0;
-          padding: 15px;
-          border: 1px solid #000000;
-          background-color: #f8f8f8 !important;
-          font-size: 11pt;
+          margin: 25px 0;
+          padding: 20px;
+          border: 2px solid #000000;
+          background-color: #f9f9f9 !important;
+          font-size: 13pt;
           color: #000000 !important;
           page-break-inside: avoid;
+          font-family: Arial, Helvetica, sans-serif;
         `;
         instructions.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 10px; text-align: center; color: #000000 !important;">INSTRUCTIONS</div>
-          <div style="line-height: 1.4; color: #000000 !important;">
-            • Read all questions carefully before attempting.<br>
-            • Answer all questions as they appear.<br>
-            • Write clearly and legibly.<br>
-            • Show all working where applicable.<br>
-            • Manage your time effectively.
+          <div style="font-weight: bold; margin-bottom: 15px; text-align: center; color: #000000 !important; font-size: 16pt;">
+            GENERAL INSTRUCTIONS
+          </div>
+          <div style="line-height: 1.7; color: #000000 !important;">
+            <div style="margin-bottom: 8px;">• Read all questions carefully before attempting.</div>
+            <div style="margin-bottom: 8px;">• Answer all questions as they appear.</div>
+            <div style="margin-bottom: 8px;">• Write clearly and legibly in blue or black ink.</div>
+            <div style="margin-bottom: 8px;">• Show all working steps where applicable.</div>
+            <div style="margin-bottom: 8px;">• Manage your time effectively across all sections.</div>
+            <div>• Review your answers before submission.</div>
           </div>
         `;
         pdfContainer.appendChild(instructions);
@@ -261,54 +290,53 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       pdfContainer.appendChild(header);
       pdfContainer.appendChild(contentClone);
       
-      // Add footer
+      // Add enhanced footer
       const footer = document.createElement('div');
       footer.style.cssText = `
-        margin-top: 30px;
-        padding-top: 15px;
-        border-top: 1px solid #000000;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 2px solid #000000;
         text-align: center;
-        font-size: 10pt;
+        font-size: 12pt;
         color: #000000 !important;
         background: transparent !important;
         page-break-inside: avoid;
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: bold;
       `;
-      footer.innerHTML = `<span style="color: #000000 !important;">Generated on ${formattedDate} • ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>`;
+      footer.innerHTML = `<span style="color: #000000 !important;">Generated on ${formattedDate} • ${type === 'question' ? 'Question Paper' : 'Solutions'} • Page</span>`;
       pdfContainer.appendChild(footer);
       
       document.body.appendChild(pdfContainer);
 
-      // Wait for fonts and layout to be ready
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for layout to be ready
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Calculate proper dimensions based on content
-      const containerRect = pdfContainer.getBoundingClientRect();
-      const contentHeight = Math.max(pdfContainer.scrollHeight, pdfContainer.offsetHeight, containerRect.height);
-      
-      // Generate high-quality PDF with proper content capture
+      // Generate high-quality PDF with better capture settings
       const canvas = await html2canvas(pdfContainer, {
-        scale: 2,
+        scale: 3, // Higher scale for better quality
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        width: Math.round(210 * 3.78), // A4 width in pixels at 96 DPI
-        height: Math.max(contentHeight * 2, Math.round(297 * 3.78)), // Ensure we capture all content
+        width: Math.round(210 * 3.78), // A4 width in pixels
+        height: Math.max(pdfContainer.scrollHeight * 3, Math.round(297 * 3.78)),
         scrollX: 0,
         scrollY: 0,
         windowWidth: Math.round(210 * 3.78),
-        windowHeight: Math.max(contentHeight, Math.round(297 * 3.78)),
+        windowHeight: Math.max(pdfContainer.scrollHeight, Math.round(297 * 3.78)),
         onclone: (clonedDoc) => {
-          // Ensure all text is black in the cloned document
           const clonedContainer = clonedDoc.querySelector('div') as HTMLElement;
           if (clonedContainer) {
             clonedContainer.style.height = 'auto';
             clonedContainer.style.minHeight = 'auto';
+            // Ensure all text remains black and readable
             const allElements = clonedDoc.querySelectorAll('*');
             allElements.forEach(el => {
               const element = el as HTMLElement;
               if (element.style) {
                 element.style.color = '#000000';
                 element.style.backgroundColor = 'transparent';
+                element.style.fontFamily = 'Arial, Helvetica, sans-serif';
               }
             });
           }
@@ -325,23 +353,32 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       
       let heightLeft = imgHeight;
       let position = 0;
+      let pageNumber = 1;
 
       // Add first page
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, Math.min(imgHeight, pdfHeight), '', 'FAST');
+      
+      // Add page number
+      pdf.setFontSize(10);
+      pdf.text(`Page ${pageNumber}`, pdfWidth - 20, pdfHeight - 10);
+      
       heightLeft -= pdfHeight;
 
-      // Add additional pages if needed to capture all content
+      // Add additional pages if needed
       while (heightLeft > 0) {
         position = -heightLeft;
         pdf.addPage();
+        pageNumber++;
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, '', 'FAST');
+        pdf.setFontSize(10);
+        pdf.text(`Page ${pageNumber}`, pdfWidth - 20, pdfHeight - 10);
         heightLeft -= pdfHeight;
       }
 
       // Clean up
       document.body.removeChild(pdfContainer);
       
-      // Generate filename
+      // Generate enhanced filename
       const timestamp = currentDate.toISOString().split('T')[0];
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filePrefix = type === 'solution' ? 'solutions' : 'question_paper';
