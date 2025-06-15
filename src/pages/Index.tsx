@@ -25,7 +25,7 @@ const Index = () => {
   const [evaluationResult, setEvaluationResult] = useState<string>('');
   const [logoutLoading, setLogoutLoading] = useState(false);
   
-  const { session } = useAuthSession();
+  const { session, checkingSession } = useAuthSession();
   const { data: paperHistory = [], isLoading: historyLoading } = usePaperHistory(session);
   const { generatePaperMutation, generateSolutionsMutation, evaluateAnswersMutation } = usePaperActions(session);
   const { toast } = useToast();
@@ -179,14 +179,6 @@ const Index = () => {
         return null;
     }
   };
-
-  if (checkingSession) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        <LoadingSpinner />
-      </div>
-    );
-  }
 
   return (
     <ThemeProvider>
