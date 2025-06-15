@@ -33,11 +33,11 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         width: 210mm;
         min-height: 297mm;
         padding: 20mm;
-        background: white;
+        background: #ffffff !important;
         font-family: 'Times New Roman', Georgia, serif;
         font-size: 12pt;
         line-height: 1.5;
-        color: #000;
+        color: #000000 !important;
         position: absolute;
         top: -50000px;
         left: -50000px;
@@ -50,7 +50,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         text-align: center;
         margin-bottom: 25px;
         padding-bottom: 15px;
-        border-bottom: 2px solid #000;
+        border-bottom: 2px solid #000000;
+        color: #000000 !important;
       `;
       
       const currentDate = new Date();
@@ -58,13 +59,13 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       const timeAllowed = type === 'question' ? '3 Hours' : 'Reference Material';
       
       header.innerHTML = `
-        <div style="margin-bottom: 10px; font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+        <div style="margin-bottom: 10px; font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #000000 !important;">
           ${title}
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 10pt;">
-          <span><strong>Date:</strong> ${formattedDate}</span>
-          <span><strong>Time:</strong> ${timeAllowed}</span>
-          <span><strong>Type:</strong> ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 10pt; color: #000000 !important;">
+          <span style="color: #000000 !important;"><strong style="color: #000000 !important;">Date:</strong> ${formattedDate}</span>
+          <span style="color: #000000 !important;"><strong style="color: #000000 !important;">Time:</strong> ${timeAllowed}</span>
+          <span style="color: #000000 !important;"><strong style="color: #000000 !important;">Type:</strong> ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>
         </div>
       `;
       
@@ -72,24 +73,34 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       const contentClone = element.cloneNode(true) as HTMLElement;
       contentClone.style.cssText = `
         font-family: 'Times New Roman', Georgia, serif;
-        color: #000;
+        color: #000000 !important;
         line-height: 1.6;
         font-size: 12pt;
+        background: #ffffff !important;
       `;
       
-      // Enhanced styling for better PDF appearance
+      // Enhanced styling for better PDF appearance with forced colors
       const applyPDFStyles = (container: HTMLElement) => {
+        // Force all elements to have black text on white background
+        const allElements = container.querySelectorAll('*');
+        allElements.forEach(el => {
+          const element = el as HTMLElement;
+          element.style.color = '#000000 !important';
+          element.style.backgroundColor = 'transparent !important';
+        });
+        
         // Style all headings
         const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
         headings.forEach((heading, index) => {
           const level = parseInt(heading.tagName[1]);
           (heading as HTMLElement).style.cssText = `
-            color: #000;
+            color: #000000 !important;
+            background: transparent !important;
             font-weight: bold;
             text-align: center;
             margin: ${level === 1 ? '20px' : '15px'} 0 ${level === 1 ? '15px' : '10px'} 0;
             font-size: ${level === 1 ? '16pt' : level === 2 ? '14pt' : '13pt'};
-            ${level <= 2 ? 'border-bottom: 1px solid #333; padding-bottom: 5px;' : ''}
+            ${level <= 2 ? 'border-bottom: 1px solid #000000; padding-bottom: 5px;' : ''}
             page-break-after: avoid;
           `;
         });
@@ -98,7 +109,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         const paragraphs = container.querySelectorAll('p');
         paragraphs.forEach(p => {
           (p as HTMLElement).style.cssText = `
-            color: #000;
+            color: #000000 !important;
+            background: transparent !important;
             margin: 8px 0;
             text-align: justify;
             line-height: 1.6;
@@ -115,6 +127,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             margin: 12px 0;
             padding-left: 25px;
             counter-reset: question-counter;
+            color: #000000 !important;
+            background: transparent !important;
           `;
           
           const listItems = ol.querySelectorAll('li');
@@ -123,7 +137,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
               margin: 10px 0;
               padding: 8px 0;
               line-height: 1.6;
-              color: #000;
+              color: #000000 !important;
+              background: transparent !important;
               position: relative;
               page-break-inside: avoid;
             `;
@@ -140,6 +155,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
           (ul as HTMLElement).style.cssText = `
             margin: 12px 0;
             padding-left: 20px;
+            color: #000000 !important;
+            background: transparent !important;
           `;
           
           const listItems = ul.querySelectorAll('li');
@@ -147,7 +164,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             (li as HTMLElement).style.cssText = `
               margin: 8px 0;
               line-height: 1.6;
-              color: #000;
+              color: #000000 !important;
+              background: transparent !important;
               list-style-type: disc;
             `;
           });
@@ -158,7 +176,8 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         strongElements.forEach(strong => {
           (strong as HTMLElement).style.cssText = `
             font-weight: bold;
-            color: #000;
+            color: #000000 !important;
+            background: transparent !important;
           `;
         });
         
@@ -167,10 +186,12 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         codeBlocks.forEach(code => {
           (code as HTMLElement).style.cssText = `
             font-family: 'Courier New', monospace;
-            background-color: #f5f5f5;
+            background-color: #f0f0f0 !important;
+            color: #000000 !important;
             padding: 4px 6px;
             border-radius: 3px;
             font-size: 11pt;
+            border: 1px solid #cccccc;
           `;
         });
         
@@ -181,14 +202,18 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
             width: 100%;
             border-collapse: collapse;
             margin: 15px 0;
+            color: #000000 !important;
+            background: #ffffff !important;
           `;
           
           const cells = table.querySelectorAll('td, th');
           cells.forEach(cell => {
             (cell as HTMLElement).style.cssText = `
-              border: 1px solid #000;
+              border: 1px solid #000000;
               padding: 8px;
               text-align: left;
+              color: #000000 !important;
+              background: #ffffff !important;
             `;
           });
         });
@@ -202,13 +227,14 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         instructions.style.cssText = `
           margin: 20px 0;
           padding: 15px;
-          border: 1px solid #000;
-          background-color: #f9f9f9;
+          border: 1px solid #000000;
+          background-color: #f8f8f8 !important;
           font-size: 11pt;
+          color: #000000 !important;
         `;
         instructions.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">INSTRUCTIONS</div>
-          <div style="line-height: 1.4;">
+          <div style="font-weight: bold; margin-bottom: 10px; text-align: center; color: #000000 !important;">INSTRUCTIONS</div>
+          <div style="line-height: 1.4; color: #000000 !important;">
             • Read all questions carefully before attempting.<br>
             • Answer all questions as they appear.<br>
             • Write clearly and legibly.<br>
@@ -227,24 +253,36 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
       footer.style.cssText = `
         margin-top: 30px;
         padding-top: 15px;
-        border-top: 1px solid #000;
+        border-top: 1px solid #000000;
         text-align: center;
         font-size: 10pt;
-        color: #666;
+        color: #333333 !important;
+        background: transparent !important;
       `;
-      footer.innerHTML = `Generated on ${formattedDate} • ${type === 'question' ? 'Question Paper' : 'Solutions'}`;
+      footer.innerHTML = `<span style="color: #333333 !important;">Generated on ${formattedDate} • ${type === 'question' ? 'Question Paper' : 'Solutions'}</span>`;
       pdfContainer.appendChild(footer);
       
       document.body.appendChild(pdfContainer);
 
-      // Generate high-quality PDF
+      // Generate high-quality PDF with better color handling
       const canvas = await html2canvas(pdfContainer, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         width: Math.round(210 * 3.78), // A4 width in pixels at 96 DPI
-        height: Math.max(Math.round(297 * 3.78), pdfContainer.scrollHeight * 2)
+        height: Math.max(Math.round(297 * 3.78), pdfContainer.scrollHeight * 2),
+        onclone: (clonedDoc) => {
+          // Ensure all text is black in the cloned document
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach(el => {
+            const element = el as HTMLElement;
+            if (element.style) {
+              element.style.color = '#000000';
+              element.style.backgroundColor = 'transparent';
+            }
+          });
+        }
       });
       
       const imgData = canvas.toDataURL('image/png', 1.0);
