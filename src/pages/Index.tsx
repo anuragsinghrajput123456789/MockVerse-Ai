@@ -16,6 +16,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
 import { QuestionPaper, Resource, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
+import AuthStatus from '../components/AuthStatus';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('generate');
@@ -232,8 +233,9 @@ const Index = () => {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors relative">
         <Header />
+        <AuthStatus />
         
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
