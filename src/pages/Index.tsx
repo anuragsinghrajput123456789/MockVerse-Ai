@@ -3,23 +3,22 @@ import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
 import TabNavigation from '../components/TabNavigation';
 import PaperForm from '../components/PaperForm';
-import QuestionPaperDisplay from '../components/QuestionPaperDisplay';
-import AnswerForm from '../components/AnswerForm';
-import EvaluationResult from '../components/EvaluationResult';
-import ResourceForm from '../components/ResourceForm';
-import ResourceList from '../components/ResourceList';
 import HistoryList from '../components/HistoryList';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ScrollToTop from '../components/ScrollToTop';
 import Chatbot from '../components/Chatbot';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
-import { QuestionPaper, Resource, PaperFormData } from '../types';
+import { QuestionPaper, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
 import PomodoroTimer from '../components/PomodoroTimer';
 import { supabase } from '../integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
+import UserMenu from '../components/UserMenu';
+import AnswerTab from '../components/tabs/AnswerTab';
+import EvaluateTab from '../components/tabs/EvaluateTab';
+import ResourcesTab from '../components/tabs/ResourcesTab';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('generate');
@@ -27,7 +26,7 @@ const Index = () => {
   const [solutions, setSolutions] = useState<string>('');
   const [evaluationResult, setEvaluationResult] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [showAnswerForm, setShowAnswerForm] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   
   const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
@@ -253,9 +252,9 @@ const Index = () => {
   };
 
   const handleLogout = async () => {
-    setLoading(true);
+    setLogoutLoading(true);
     const { error } = await supabase.auth.signOut();
-    setLoading(false);
+    setLogoutLoading(false);
     if (error) {
       toast({ title: "Logout Error", description: error.message, variant: "destructive" });
     } else {
@@ -277,77 +276,26 @@ const Index = () => {
       
       case 'answer':
         return (
-          <div className="space-y-8">
-            {currentPaper ? (
-              <>
-                <QuestionPaperDisplay
-                  content={currentPaper.questions}
-                  title="Question Paper"
-                  type="question"
-                  onGenerateSolutions={handleGenerateSolutions}
-                  onStartAnswering={() => setShowAnswerForm(true)}
-                  loading={loading}
-                />
-                
-                {solutions && (
-                  <QuestionPaperDisplay
-                    content={solutions}
-                    title="Solutions"
-                    type="solution"
-                  />
-                )}
-                
-                {showAnswerForm && (
-                  <>
-                    <PomodoroTimer />
-                    <AnswerForm
-                      questionPaper={currentPaper.questions}
-                      onSubmit={handleSubmitAnswers}
-                      loading={loading}
-                    />
-                  </>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  No question paper available. Generate one first!
-                </p>
-                <button
-                  onClick={() => setActiveTab('generate')}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 text-white rounded-lg hover:from-indigo-600 hover:to-pink-600 transition-all"
-                >
-                  Generate Question Paper
-                </button>
-              </div>
-            )}
-          </div>
+          <AnswerTab
+            currentPaper={currentPaper}
+            solutions={solutions}
+            loading={loading}
+            onGenerateSolutions={handleGenerateSolutions}
+            onSubmitAnswers={handleSubmitAnswers}
+            onNavigateToGenerate={() => setActiveTab('generate')}
+          />
         );
       
       case 'evaluate':
-        return evaluationResult ? (
-          <EvaluationResult result={evaluationResult} />
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              No evaluation results available. Submit your answers first!
-            </p>
-            <button
-              onClick={() => setActiveTab('answer')}
-              className="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg hover:from-green-600 hover:to-blue-600 transition-all"
-            >
-              Submit Answers
-            </button>
-          </div>
+        return (
+          <EvaluateTab
+            evaluationResult={evaluationResult}
+            onNavigateToAnswer={() => setActiveTab('answer')}
+          />
         );
       
       case 'resources':
-        return (
-          <div className="space-y-8">
-            <ResourceForm onAdd={handleAddResource} />
-            <ResourceList resources={resources} />
-          </div>
-        );
+        return <ResourcesTab />;
       
       case 'history':
         return <HistoryList papers={paperHistory} onSelect={handleSelectPaper} />;
@@ -361,29 +309,7 @@ const Index = () => {
     <ThemeProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors relative">
         <Header />
-        <div className="absolute top-4 right-4 z-10">
-          {session ? (
-            <div className="flex items-center gap-4">
-              <span className="text-gray-700 dark:text-gray-300 text-sm hidden sm:block font-medium">
-                {session.user.email}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg shadow-md hover:from-red-600 hover:to-orange-600 transition-all text-sm font-semibold"
-                disabled={loading}
-              >
-                {loading ? 'Logging out...' : 'Logout'}
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => navigate('/auth')}
-              className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg shadow-md hover:from-green-600 hover:to-blue-600 transition-all text-sm font-semibold"
-            >
-              Login / Sign Up
-            </button>
-          )}
-        </div>
+        <UserMenu session={session} onLogout={handleLogout} loading={logoutLoading} />
         
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
