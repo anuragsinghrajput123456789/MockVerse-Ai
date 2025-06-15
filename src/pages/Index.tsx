@@ -30,7 +30,6 @@ const Index = () => {
   const [session, setSession] = useState<Session | null>(null);
   
   const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
-  const [resources, setResources] = useLocalStorage<Resource[]>('resources', []);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -229,21 +228,6 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAddResource = (resourceData: Omit<Resource, 'id' | 'createdAt'>) => {
-    const resource: Resource = {
-      id: Date.now().toString(),
-      ...resourceData,
-      createdAt: new Date()
-    };
-    
-    setResources(prev => [resource, ...prev]);
-    
-    toast({
-      title: "Resource Added!",
-      description: "Learning resource has been added successfully.",
-    });
   };
 
   const handleSelectPaper = (paper: QuestionPaper) => {
