@@ -23,7 +23,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="absolute top-4 right-4 z-10">
+    <div className="absolute top-4 right-4 z-51">
       {session ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
