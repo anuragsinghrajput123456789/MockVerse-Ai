@@ -148,7 +148,7 @@ const Index = () => {
   const renderContent = () => {
     if (!apiKey) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] px-4">
           <ApiKeyInput onSave={saveApiKey} />
         </div>
       );
@@ -183,23 +183,23 @@ const Index = () => {
       
       case 'history':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Paper History</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mx-3 md:mx-0">
+            <h2 className="text-lg md:text-xl font-semibold mb-4">Paper History</h2>
             {paperHistory.length === 0 ? (
-              <p className="text-gray-500">No papers generated yet.</p>
+              <p className="text-gray-500 text-center py-8">No papers generated yet.</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {paperHistory.map((paper) => (
                   <div
                     key={paper.id}
-                    className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="border rounded-lg p-3 md:p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => handleSelectPaper(paper)}
                   >
-                    <h3 className="font-medium">{paper.subject} - Class {paper.class}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="font-medium text-sm md:text-base">{paper.subject} - Class {paper.class}</h3>
+                    <p className="text-xs md:text-sm text-gray-500 mt-1">
                       {paper.chapters.join(', ')} • {paper.totalMarks} marks • {paper.difficulty}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 mt-1">
                       Created: {paper.createdAt.toLocaleDateString()}
                     </p>
                   </div>
@@ -220,35 +220,37 @@ const Index = () => {
         <Header />
         
         {apiKey && (
-          <div className="absolute top-4 right-4">
+          <div className="absolute top-16 md:top-4 right-3 md:right-4 z-40">
             <Button
               variant="outline"
               size="sm"
               onClick={clearApiKey}
-              className="text-xs"
+              className="text-xs px-2 md:px-3"
             >
               Change API Key
             </Button>
           </div>
         )}
         
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
           <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-4">
+            <div className="text-center mb-8 md:mb-12 px-2">
+              <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-3 md:mb-4 leading-tight">
                 AI-Powered Question Papers
               </h1>
-              <p className="text-xl text-gray-600 dark:text-gray-300">
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
                 Generate, solve, and evaluate question papers with advanced AI
               </p>
             </div>
             
             {apiKey && (
-              <TabNavigation
-                tabs={tabs}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
+              <div className="mb-4 md:mb-6">
+                <TabNavigation
+                  tabs={tabs}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                />
+              </div>
             )}
             
             {loading && <LoadingSpinner />}

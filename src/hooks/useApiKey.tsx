@@ -2,15 +2,15 @@
 import { useState, useEffect } from 'react';
 
 export const useApiKey = () => {
-  const [apiKey, setApiKey] = useState<string>('AIzaSyCTnS9K1VD_hx2pQOT2I4Jk1JfcjWbxN0c');
+  const [apiKey, setApiKey] = useState<string>('AIzaSyAHYYF6u__TlBXAMSgyw5GRUT5sn3LG0D4');
 
   useEffect(() => {
     const stored = localStorage.getItem('gemini_api_key');
     if (stored) {
       setApiKey(stored);
     } else {
-      // Save the default API key to localStorage
-      localStorage.setItem('gemini_api_key', 'AIzaSyCTnS9K1VD_hx2pQOT2I4Jk1JfcjWbxN0c');
+      // Save the new default API key to localStorage
+      localStorage.setItem('gemini_api_key', 'AIzaSyAHYYF6u__TlBXAMSgyw5GRUT5sn3LG0D4');
     }
   }, []);
 
@@ -21,7 +21,7 @@ export const useApiKey = () => {
 
   const clearApiKey = () => {
     localStorage.removeItem('gemini_api_key');
-    setApiKey('');
+    setApiKey('AIzaSyAHYYF6u__TlBXAMSgyw5GRUT5sn3LG0D4');
   };
 
   return { apiKey, saveApiKey, clearApiKey };

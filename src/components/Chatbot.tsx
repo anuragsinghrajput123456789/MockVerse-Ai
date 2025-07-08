@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, Send, X, Minimize2 } from 'lucide-react';
+import { MessageCircle, Send, X, Minimize2, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -92,20 +92,20 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg z-50"
+        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 h-12 w-12 md:h-14 md:w-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg z-50 transition-all duration-300"
         size="sm"
       >
-        <MessageCircle className="h-6 w-6" />
+        <MessageCircle className="h-5 w-5 md:h-6 md:w-6" />
       </Button>
     );
   }
 
   return (
-    <Card className={`fixed bottom-6 right-6 w-80 h-96 shadow-lg z-50 transition-all duration-300 ${
-      isMinimized ? 'h-14' : 'h-96'
+    <Card className={`fixed bottom-4 right-4 md:bottom-6 md:right-6 w-[calc(100vw-2rem)] max-w-sm md:w-80 shadow-lg z-50 transition-all duration-300 ${
+      isMinimized ? 'h-14' : 'h-[70vh] md:h-96'
     }`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">AI Study Assistant</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 md:px-4">
+        <CardTitle className="text-sm font-medium truncate">AI Study Assistant</CardTitle>
         <div className="flex items-center space-x-1">
           <Button
             variant="ghost"
@@ -113,7 +113,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
             onClick={() => setIsMinimized(!isMinimized)}
             className="h-8 w-8 p-0"
           >
-            <Minimize2 className="h-4 w-4" />
+            {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
           </Button>
           <Button
             variant="ghost"
@@ -128,21 +128,21 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
       
       {!isMinimized && (
         <CardContent className="flex flex-col h-full p-0">
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
+          <ScrollArea className="flex-1 p-3 md:p-4">
+            <div className="space-y-3 md:space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                    className={`max-w-[85%] md:max-w-[80%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                       message.isUser
                         ? 'bg-indigo-600 text-white'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                     }`}
                   >
-                    {message.text}
+                    <div className="whitespace-pre-wrap break-words">{message.text}</div>
                   </div>
                 </div>
               ))}
@@ -161,7 +161,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
             </div>
           </ScrollArea>
           
-          <div className="border-t p-4">
+          <div className="border-t p-3 md:p-4">
             <div className="flex space-x-2">
               <Input
                 value={inputMessage}
@@ -169,12 +169,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
                 onKeyPress={handleKeyPress}
                 placeholder="Ask a question..."
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 text-sm"
               />
               <Button
                 onClick={handleSendMessage}
                 disabled={isLoading || !inputMessage.trim()}
                 size="sm"
+                className="px-3"
               >
                 <Send className="h-4 w-4" />
               </Button>
