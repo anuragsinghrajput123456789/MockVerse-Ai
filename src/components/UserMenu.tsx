@@ -1,7 +1,5 @@
 
 import React from 'react';
-import { Session } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,13 +12,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, User } from 'lucide-react';
 
 interface UserMenuProps {
-  session: Session | null;
+  session: any;
   onLogout: () => void;
   loading: boolean;
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
-  const navigate = useNavigate();
+  const handleLoginClick = () => {
+    // Simple scroll to top or redirect logic without react-router
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="absolute top-4 right-4 z-51">
@@ -40,7 +41,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">My Account</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {session.user.email}
+                  {session?.user?.email || 'User'}
                 </p>
               </div>
             </DropdownMenuLabel>
@@ -53,7 +54,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
         </DropdownMenu>
       ) : (
         <button
-          onClick={() => navigate('/auth')}
+          onClick={handleLoginClick}
           className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg shadow-md hover:from-green-600 hover:to-blue-600 transition-all text-sm font-semibold"
         >
           Login / Sign Up
