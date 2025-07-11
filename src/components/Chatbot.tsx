@@ -92,7 +92,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-2xl z-50 transition-all duration-300 transform hover:scale-110 animate-pulse"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-2xl z-50 transition-all duration-300 transform hover:scale-110"
         size="sm"
       >
         <MessageCircle className="h-6 w-6" />

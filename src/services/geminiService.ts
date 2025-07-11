@@ -20,21 +20,28 @@ export const generateQuestionPaper = async (formData: any, apiKey: string): Prom
     requirements.push(`- Additional instructions: ${formData.instructions}`);
   }
 
-  const prompt = `Generate a ${formData.subject} question paper for class ${formData.class} based on chapters: ${formData.chapters.join(', ')}${formData.topics ? ` with focus on: ${formData.topics}` : ''}. 
+  const prompt = `Generate a comprehensive ${formData.subject} question paper for class ${formData.class} based on chapters: ${formData.chapters.join(', ')}${formData.topics ? ` with focus on: ${formData.topics}` : ''}. 
 
 Requirements:
 ${requirements.join('\n')}
 
-Please format the question paper with:
-1. Proper header with subject, class, time, and marks
-2. Clear section divisions
-3. Proper question numbering
-4. Mark allocation for each question
-5. Instructions for students
+IMPORTANT INSTRUCTIONS:
+1. Create a COMPLETE question paper with ALL questions needed to reach exactly ${formData.totalMarks || 100} marks
+2. Include proper sections (Section A, B, C, etc.) with varying difficulty levels
+3. Distribute marks appropriately across all sections
+4. Include a variety of question types (MCQ, Short Answer, Long Answer, etc.)
+5. DO NOT use placeholders like "(...continue with more questions)" - write ALL questions
+6. Make sure the total marks add up to exactly ${formData.totalMarks || 100}
 
-Important: Generate the FULL question paper with all necessary questions to meet the total marks. Do not use placeholders or summaries like "(...continue with more questions)". The paper must be complete and ready to use.
+Format the question paper with:
+- Proper header with subject, class, time duration, and total marks
+- Clear section divisions with instructions
+- Proper question numbering (1, 2, 3... or 1.1, 1.2, etc.)
+- Mark allocation for each question clearly mentioned
+- General instructions for students
+- All questions must be complete and exam-ready
 
-Make it look professional and exam-ready. Use proper markdown formatting for better readability.`;
+Generate the COMPLETE question paper now with every single question written out in full detail.`;
 
   const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
     method: 'POST',

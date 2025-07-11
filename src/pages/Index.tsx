@@ -63,7 +63,7 @@ const Index = () => {
       
       toast({
         title: "Question Paper Generated!",
-        description: "Your paper has been generated successfully.",
+        description: "Your complete paper has been generated successfully.",
       });
     } catch (error: any) {
       console.error('Error generating paper:', error);
@@ -285,21 +285,21 @@ const Index = () => {
             <div className="text-center mb-12 px-4">
               <div className="inline-block mb-6">
                 <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
-                  <span className="text-white font-bold text-2xl md:text-3xl">AI</span>
+                  <span className="text-white font-bold text-2xl md:text-3xl">📝</span>
                 </div>
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-6 leading-tight">
-                AI-Powered Question Papers
+                AI Question Paper Generator
               </h1>
               <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 leading-relaxed max-w-3xl mx-auto">
-                Generate, solve, and evaluate question papers with advanced AI technology
+                Generate comprehensive question papers with complete questions and proper mark distribution
               </p>
               <div className="flex flex-wrap justify-center gap-4 mt-8">
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">🎯 Smart Generation</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">🎯 Complete Papers</span>
                 </div>
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">📊 Auto Evaluation</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">📊 Proper Marks</span>
                 </div>
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">💡 Instant Solutions</span>
