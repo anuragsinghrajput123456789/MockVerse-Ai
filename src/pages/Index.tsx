@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Chatbot from '../components/Chatbot';
 import ApiKeyInput from '../components/ApiKeyInput';
 import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
 import { QuestionPaper, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
 import AnswerTab from '../components/tabs/AnswerTab';
@@ -148,64 +149,110 @@ const Index = () => {
   const renderContent = () => {
     if (!apiKey) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] px-4">
-          <ApiKeyInput onSave={saveApiKey} />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+          <div className="w-full max-w-md">
+            <ApiKeyInput onSave={saveApiKey} />
+          </div>
         </div>
       );
     }
 
     switch (activeTab) {
       case 'generate':
-        return <PaperForm onSubmit={handleGeneratePaper} loading={loading} />;
+        return (
+          <div className="w-full max-w-4xl mx-auto px-4">
+            <PaperForm onSubmit={handleGeneratePaper} loading={loading} />
+          </div>
+        );
       
       case 'answer':
         return (
-          <AnswerTab
-            currentPaper={currentPaper}
-            solutions={solutions}
-            loading={loading}
-            onGenerateSolutions={handleGenerateSolutions}
-            onSubmitAnswers={handleSubmitAnswers}
-            onNavigateToGenerate={() => setActiveTab('generate')}
-          />
+          <div className="w-full max-w-6xl mx-auto px-4">
+            <AnswerTab
+              currentPaper={currentPaper}
+              solutions={solutions}
+              loading={loading}
+              onGenerateSolutions={handleGenerateSolutions}
+              onSubmitAnswers={handleSubmitAnswers}
+              onNavigateToGenerate={() => setActiveTab('generate')}
+            />
+          </div>
         );
       
       case 'evaluate':
         return (
-          <EvaluateTab
-            evaluationResult={evaluationResult}
-            onNavigateToAnswer={() => setActiveTab('answer')}
-          />
+          <div className="w-full max-w-6xl mx-auto px-4">
+            <EvaluateTab
+              evaluationResult={evaluationResult}
+              onNavigateToAnswer={() => setActiveTab('answer')}
+            />
+          </div>
         );
       
       case 'resources':
-        return <ResourcesTab />;
+        return (
+          <div className="w-full max-w-6xl mx-auto px-4">
+            <ResourcesTab />
+          </div>
+        );
       
       case 'history':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mx-3 md:mx-0">
-            <h2 className="text-lg md:text-xl font-semibold mb-4">Paper History</h2>
-            {paperHistory.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No papers generated yet.</p>
-            ) : (
-              <div className="space-y-3 md:space-y-4">
-                {paperHistory.map((paper) => (
-                  <div
-                    key={paper.id}
-                    className="border rounded-lg p-3 md:p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => handleSelectPaper(paper)}
-                  >
-                    <h3 className="font-medium text-sm md:text-base">{paper.subject} - Class {paper.class}</h3>
-                    <p className="text-xs md:text-sm text-gray-500 mt-1">
-                      {paper.chapters.join(', ')} • {paper.totalMarks} marks • {paper.difficulty}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Created: {paper.createdAt.toLocaleDateString()}
+          <div className="w-full max-w-4xl mx-auto px-4">
+            <Card className="shadow-lg border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
+                  Paper History
+                </h2>
+                {paperHistory.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-6xl mb-4">📄</div>
+                    <p className="text-gray-500 dark:text-gray-400 text-lg">No papers generated yet.</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                      Create your first question paper to see it here!
                     </p>
                   </div>
-                ))}
-              </div>
-            )}
+                ) : (
+                  <div className="grid gap-4">
+                    {paperHistory.map((paper) => (
+                      <Card
+                        key={paper.id}
+                        className="cursor-pointer hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600"
+                        onClick={() => handleSelectPaper(paper)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">
+                                {paper.subject} - Class {paper.class}
+                              </h3>
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs">
+                                  {paper.totalMarks} marks
+                                </span>
+                                <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs">
+                                  {paper.difficulty}
+                                </span>
+                                <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-xs">
+                                  {paper.board}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                Chapters: {paper.chapters.join(', ')}
+                              </p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500">
+                                Created: {paper.createdAt.toLocaleDateString()} at {paper.createdAt.toLocaleTimeString()}
+                              </p>
+                            </div>
+                            <div className="text-2xl opacity-50">📄</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
       
@@ -216,35 +263,52 @@ const Index = () => {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors relative">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900 transition-all duration-500">
         <Header />
         
         {apiKey && (
-          <div className="absolute top-16 md:top-4 right-3 md:right-4 z-40">
+          <div className="fixed top-20 right-4 z-40">
             <Button
               variant="outline"
               size="sm"
               onClick={clearApiKey}
-              className="text-xs px-2 md:px-3"
+              className="text-xs px-3 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 shadow-lg"
             >
               Change API Key
             </Button>
           </div>
         )}
         
-        <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-8 md:mb-12 px-2">
-              <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-3 md:mb-4 leading-tight">
+        <main className="container mx-auto px-4 py-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Hero Section */}
+            <div className="text-center mb-12 px-4">
+              <div className="inline-block mb-6">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+                  <span className="text-white font-bold text-2xl md:text-3xl">AI</span>
+                </div>
+              </div>
+              <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-6 leading-tight">
                 AI-Powered Question Papers
               </h1>
-              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
-                Generate, solve, and evaluate question papers with advanced AI
+              <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 leading-relaxed max-w-3xl mx-auto">
+                Generate, solve, and evaluate question papers with advanced AI technology
               </p>
+              <div className="flex flex-wrap justify-center gap-4 mt-8">
+                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">🎯 Smart Generation</span>
+                </div>
+                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">📊 Auto Evaluation</span>
+                </div>
+                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">💡 Instant Solutions</span>
+                </div>
+              </div>
             </div>
             
             {apiKey && (
-              <div className="mb-4 md:mb-6">
+              <div className="mb-8">
                 <TabNavigation
                   tabs={tabs}
                   activeTab={activeTab}
@@ -253,9 +317,15 @@ const Index = () => {
               </div>
             )}
             
-            {loading && <LoadingSpinner />}
+            {loading && (
+              <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-2xl">
+                  <LoadingSpinner />
+                </div>
+              </div>
+            )}
             
-            <div className="transition-all duration-300">
+            <div className="transition-all duration-500 ease-in-out">
               {renderContent()}
             </div>
           </div>
