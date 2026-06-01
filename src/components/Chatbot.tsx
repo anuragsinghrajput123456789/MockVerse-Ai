@@ -1,11 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, Send, X, Minimize2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
-import { sendChatMessage } from '../services/geminiService';
+import { sendChatMessage } from '../services/apiService';
 import { useToast } from '../hooks/use-toast';
 
 interface Message {
@@ -16,11 +15,10 @@ interface Message {
 }
 
 interface ChatbotProps {
-  context?: string;
-  apiKey: string;
+  paperId?: string;
 }
 
-const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
+const Chatbot: React.FC<ChatbotProps> = ({ paperId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -59,7 +57,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
     setIsLoading(true);
 
     try {
-      const response = await sendChatMessage(inputMessage, context, apiKey);
+      const response = await sendChatMessage(inputMessage, paperId);
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -101,7 +99,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
   }
 
   return (
-    <Card className={`fixed bottom-6 right-6 w-80 h-96 shadow-lg z-50 transition-all duration-300 ${
+    <Card className={`fixed bottom-6 right-6 w-80 shadow-lg z-50 transition-all duration-300 ${
       isMinimized ? 'h-14' : 'h-96'
     }`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -127,7 +125,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
       </CardHeader>
       
       {!isMinimized && (
-        <CardContent className="flex flex-col h-full p-0">
+        <CardContent className="flex flex-col h-[calc(100%-3.5rem)] p-0">
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
               {messages.map((message) => (
@@ -161,7 +159,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
             </div>
           </ScrollArea>
           
-          <div className="border-t p-4">
+          <div className="border-t p-4 mt-auto">
             <div className="flex space-x-2">
               <Input
                 value={inputMessage}
@@ -187,3 +185,4 @@ const Chatbot: React.FC<ChatbotProps> = ({ context, apiKey }) => {
 };
 
 export default Chatbot;
+

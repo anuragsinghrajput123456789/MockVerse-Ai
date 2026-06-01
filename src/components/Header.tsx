@@ -1,8 +1,11 @@
 import React from "react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
+import UserMenu from "./UserMenu";
 
 const Header: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
+  const { user, logout, loading } = useAuth();
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -32,6 +35,8 @@ const Header: React.FC = () => {
             >
               {isDark ? "🌙" : "☀️"}
             </button>
+            
+            <UserMenu user={user} onLogout={logout} loading={loading} />
           </div>
         </div>
       </div>
@@ -40,3 +45,4 @@ const Header: React.FC = () => {
 };
 
 export default Header;
+

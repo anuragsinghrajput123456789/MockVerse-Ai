@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# MockVerse Generated Artifacts & Environment Configs
+public/*.pdf
+backend/.env
+

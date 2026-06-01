@@ -1,0 +1,42 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  papers    QuestionPaper[]
+}
+
+model QuestionPaper {
+  id               String   @id @default(uuid())
+  subject          String
+  class            String
+  totalMarks       Int
+  difficulty       String
+  board            String
+  chapters         Json     // Store array of chapters as a JSON array
+  topics           String?
+  instructions     String?
+  pattern          String
+  questions        String   @db.LongText
+  solutions        String?  @db.LongText
+  evaluationResult String?  @db.LongText
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

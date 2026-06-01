@@ -1,7 +1,4 @@
-
 import React from 'react';
-import { Session } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,53 +11,47 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, User } from 'lucide-react';
 
 interface UserMenuProps {
-  session: Session | null;
+  user: { email: string; name?: string } | null;
   onLogout: () => void;
   loading: boolean;
 }
 
-const UserMenu: React.FC<UserMenuProps> = ({ session, onLogout, loading }) => {
-  const navigate = useNavigate();
-
+const UserMenu: React.FC<UserMenuProps> = ({ user, onLogout, loading }) => {
   return (
-    <div className="absolute top-4 right-4 z-51">
-      {session ? (
+    <div className="z-51">
+      {user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
               <Avatar className="h-9 w-9">
-                <AvatarFallback>
-                  <User className="h-5 w-5" />
+                <AvatarFallback className="bg-indigo-100 text-indigo-700 font-semibold dark:bg-indigo-950 dark:text-indigo-300">
+                  {user.name ? user.name.charAt(0).toUpperCase() : <User className="h-5 w-5" />}
                 </AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">My Account</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {session.user.email}
+                <p className="text-sm font-medium leading-none text-gray-900 dark:text-gray-100">
+                  {user.name || 'My Account'}
+                </p>
+                <p className="text-xs leading-none text-gray-500 dark:text-gray-400">
+                  {user.email}
                 </p>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onLogout} disabled={loading} className="cursor-pointer">
+            <DropdownMenuSeparator className="bg-gray-100 dark:bg-gray-700" />
+            <DropdownMenuItem onClick={onLogout} disabled={loading} className="cursor-pointer text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/20">
               <LogOut className="mr-2 h-4 w-4" />
               <span>{loading ? 'Logging out...' : 'Logout'}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : (
-        <button
-          onClick={() => navigate('/auth')}
-          className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg shadow-md hover:from-green-600 hover:to-blue-600 transition-all text-sm font-semibold"
-        >
-          Login / Sign Up
-        </button>
-      )}
+      ) : null}
     </div>
   );
 };
 
 export default UserMenu;
+

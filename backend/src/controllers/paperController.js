@@ -1,0 +1,333 @@
+import prisma from '../config/db.js';
+
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+
+// Helper to call Gemini API
+const callGemini = async (prompt, customApiKey) => {
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured on server and no custom key provided');
+  }
+
+  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 8192,
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+    throw new Error('Invalid response from Gemini API');
+  }
+
+  return data.candidates[0].content.parts[0].text;
+};
+
+// @desc    Generate a new question paper and save to MySQL
+// @route   POST /api/papers
+// @access  Private
+export const generatePaper = async (req, res) => {
+  const {
+    subject,
+    class: studentClass,
+    totalMarks,
+    difficulty,
+    board,
+    chapters,
+    topics,
+    instructions,
+    pattern,
+    customPatternDetails,
+  } = req.body;
+
+  if (!subject || !studentClass || !chapters || !Array.isArray(chapters)) {
+    return res.status(400).json({ message: 'Subject, class, and chapters (array) are required' });
+  }
+
+  try {
+    const requirements = [
+      `- Total marks: ${totalMarks || 100}`,
+      `- Difficulty level: ${difficulty || 'Medium'}`,
+      `- Board/Book type: ${board || 'NCERT'}`,
+      `- Pattern: ${pattern || 'Board-style'}`,
+    ];
+
+    if (pattern === 'Custom' && customPatternDetails) {
+      requirements.push(`- Custom Pattern Details: ${customPatternDetails}`);
+    }
+    if (instructions) {
+      requirements.push(`- Additional instructions: ${instructions}`);
+    }
+
+    const prompt = `Generate a ${subject} question paper for class ${studentClass} based on chapters: ${chapters.join(', ')}${topics ? ` with focus on: ${topics}` : ''}. 
+  
+Requirements:
+${requirements.join('\n')}
+  
+Please format the question paper with:
+1. Proper header with subject, class, time, and marks
+2. Clear section divisions
+3. Proper question numbering
+4. Mark allocation for each question
+5. Instructions for students
+  
+Important: Generate the FULL question paper with all necessary questions to meet the total marks. Do not use placeholders or summaries like "(...continue with more questions)". The paper must be complete and ready to use.
+  
+Make it look professional and exam-ready. Use proper markdown formatting for better readability.`;
+
+    // Extract client custom API Key from headers if they provided one
+    const customApiKey = req.headers['x-api-key'];
+
+    const content = await callGemini(prompt, customApiKey);
+
+    // Save to database
+    const newPaper = await prisma.questionPaper.create({
+      data: {
+        subject,
+        class: studentClass,
+        totalMarks: Number(totalMarks) || 100,
+        difficulty: difficulty || 'Medium',
+        board: board || 'NCERT',
+        chapters,
+        topics: topics || '',
+        instructions: instructions || '',
+        pattern: pattern || 'Board-style',
+        questions: content,
+        userId: req.user.id,
+      },
+    });
+
+    res.status(201).json(newPaper);
+  } catch (error) {
+    console.error('Generate paper error:', error);
+    res.status(500).json({ message: error.message || 'Server error generating question paper' });
+  }
+};
+
+// @desc    Get all question papers for the authenticated user
+// @route   GET /api/papers
+// @access  Private
+export const getPapers = async (req, res) => {
+  try {
+    const papers = await prisma.questionPaper.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(papers);
+  } catch (error) {
+    console.error('Get papers error:', error);
+    res.status(500).json({ message: 'Server error fetching papers' });
+  }
+};
+
+// @desc    Get details of a specific paper
+// @route   GET /api/papers/:id
+// @access  Private
+export const getPaperById = async (req, res) => {
+  try {
+    const paper = await prisma.questionPaper.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user.id,
+      },
+    });
+
+    if (!paper) {
+      return res.status(404).json({ message: 'Question paper not found or access denied' });
+    }
+
+    res.json(paper);
+  } catch (error) {
+    console.error('Get paper by ID error:', error);
+    res.status(500).json({ message: 'Server error fetching paper' });
+  }
+};
+
+// @desc    Delete a specific paper
+// @route   DELETE /api/papers/:id
+// @access  Private
+export const deletePaper = async (req, res) => {
+  try {
+    const paper = await prisma.questionPaper.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user.id,
+      },
+    });
+
+    if (!paper) {
+      return res.status(404).json({ message: 'Question paper not found or access denied' });
+    }
+
+    await prisma.questionPaper.delete({
+      where: { id: req.params.id },
+    });
+
+    res.json({ message: 'Question paper removed successfully' });
+  } catch (error) {
+    console.error('Delete paper error:', error);
+    res.status(500).json({ message: 'Server error deleting paper' });
+  }
+};
+
+// @desc    Generate solutions for a specific paper
+// @route   POST /api/papers/:id/solutions
+// @access  Private
+export const generateSolutions = async (req, res) => {
+  try {
+    const paper = await prisma.questionPaper.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user.id,
+      },
+    });
+
+    if (!paper) {
+      return res.status(404).json({ message: 'Question paper not found or access denied' });
+    }
+
+    // If solutions already exist, just return them
+    if (paper.solutions) {
+      return res.json({ solutions: paper.solutions });
+    }
+
+    const prompt = `Generate detailed solutions for the following question paper. Provide step-by-step solutions with explanations:
+
+${paper.questions}
+
+Please format the solutions with:
+1. Question number references
+2. Step-by-step working
+3. Clear explanations
+4. Final answers highlighted
+5. Alternative methods where applicable`;
+
+    const customApiKey = req.headers['x-api-key'];
+    const solutionContent = await callGemini(prompt, customApiKey);
+
+    // Update database
+    const updatedPaper = await prisma.questionPaper.update({
+      where: { id: paper.id },
+      data: { solutions: solutionContent },
+    });
+
+    res.json({ solutions: updatedPaper.solutions });
+  } catch (error) {
+    console.error('Generate solutions error:', error);
+    res.status(500).json({ message: error.message || 'Server error generating solutions' });
+  }
+};
+
+// @desc    Evaluate submitted answers for a paper
+// @route   POST /api/papers/:id/evaluate
+// @access  Private
+export const evaluateAnswers = async (req, res) => {
+  const { answers } = req.body; // Array of answers
+
+  if (!answers || !Array.isArray(answers)) {
+    return res.status(400).json({ message: 'Answers array is required' });
+  }
+
+  try {
+    const paper = await prisma.questionPaper.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user.id,
+      },
+    });
+
+    if (!paper) {
+      return res.status(404).json({ message: 'Question paper not found or access denied' });
+    }
+
+    const prompt = `Evaluate the following answers for the given question paper and provide marks and detailed feedback. The answers are provided in a list where each element corresponds to a question.
+
+Question Paper:
+${paper.questions}
+
+Answers:
+${answers.map((ans, i) => `Answer for Q${i + 1}: ${ans}`).join('\n')}
+
+Please provide:
+1. A total score.
+2. Question-by-question feedback.
+3. An overall summary.
+Make it structured and easy to read.`;
+
+    const customApiKey = req.headers['x-api-key'];
+    const evaluationContent = await callGemini(prompt, customApiKey);
+
+    // Update database
+    const updatedPaper = await prisma.questionPaper.update({
+      where: { id: paper.id },
+      data: { evaluationResult: evaluationContent },
+    });
+
+    res.json({ evaluationResult: updatedPaper.evaluationResult });
+  } catch (error) {
+    console.error('Evaluate answers error:', error);
+    res.status(500).json({ message: error.message || 'Server error evaluating answers' });
+  }
+};
+
+// @desc    Chatbot interaction with paper context
+// @route   POST /api/chat
+// @access  Private
+export const chatbot = async (req, res) => {
+  const { message, paperId } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ message: 'Message is required' });
+  }
+
+  try {
+    let contextPrompt = '';
+    
+    if (paperId) {
+      const paper = await prisma.questionPaper.findFirst({
+        where: {
+          id: paperId,
+          userId: req.user.id,
+        },
+      });
+
+      if (paper) {
+        contextPrompt = `Here's the context of the current question paper or study material:
+\n\nQuestion Paper:\n${paper.questions}${paper.solutions ? `\n\nSolutions:\n${paper.solutions}` : ''}\n\n`;
+      }
+    }
+
+    const prompt = `You are an AI educational assistant helping students with their studies. 
+${contextPrompt}
+Student's question: ${message}
+
+Please provide a helpful, educational response that helps the student understand the concepts better. Be clear, concise, and encouraging.`;
+
+    const customApiKey = req.headers['x-api-key'];
+    const chatResponse = await callGemini(prompt, customApiKey);
+
+    res.json({ response: chatResponse });
+  } catch (error) {
+    console.error('Chatbot error:', error);
+    res.status(500).json({ message: error.message || 'Server error getting chatbot response' });
+  }
+};

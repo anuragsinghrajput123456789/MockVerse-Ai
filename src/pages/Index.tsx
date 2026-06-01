@@ -1,20 +1,17 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Header from '../components/Header';
 import TabNavigation from '../components/TabNavigation';
 import PaperForm from '../components/PaperForm';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Chatbot from '../components/Chatbot';
-import ApiKeyInput from '../components/ApiKeyInput';
-import { Button } from '../components/ui/button';
 import { QuestionPaper, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
 import AnswerTab from '../components/tabs/AnswerTab';
 import EvaluateTab from '../components/tabs/EvaluateTab';
 import ResourcesTab from '../components/tabs/ResourcesTab';
-import { generateQuestionPaper, generateSolutions, evaluateAnswers } from '../services/geminiService';
-import { useApiKey } from '../hooks/useApiKey';
+import { generateQuestionPaper, generateSolutions, evaluateAnswers, getPapers } from '../services/apiService';
+import { useAuth } from '../contexts/AuthContext';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('generate');
@@ -24,40 +21,33 @@ const Index = () => {
   const [loading, setLoading] = useState(false);
   const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
   
-  const { apiKey, saveApiKey, clearApiKey } = useApiKey();
+  const { user } = useAuth();
   const { toast } = useToast();
   
-  const handleGeneratePaper = async (formData: PaperFormData) => {
-    if (!apiKey) {
-      toast({
-        title: "API Key Required",
-        description: "Please enter your Gemini API key first.",
-        variant: "destructive",
-      });
-      return;
+  // Load paper history from backend MySQL on mount
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const history = await getPapers();
+        setPaperHistory(history);
+      } catch (error: any) {
+        console.error('Error fetching paper history:', error);
+      }
+    };
+    if (user) {
+      fetchHistory();
     }
-
+  }, [user]);
+  
+  const handleGeneratePaper = async (formData: PaperFormData) => {
     setLoading(true);
     try {
-      const content = await generateQuestionPaper(formData, apiKey);
+      const newPaper = await generateQuestionPaper(formData);
       
-      const newPaper: QuestionPaper = {
-        id: Date.now().toString(),
-        subject: formData.subject,
-        class: formData.class,
-        totalMarks: formData.totalMarks,
-        difficulty: formData.difficulty,
-        board: formData.board,
-        chapters: formData.chapters,
-        topics: formData.topics || '',
-        instructions: formData.instructions || '',
-        pattern: formData.pattern,
-        questions: content,
-        createdAt: new Date(),
-      };
-
       setCurrentPaper(newPaper);
       setPaperHistory(prev => [newPaper, ...prev]);
+      setSolutions('');
+      setEvaluationResult('');
       setActiveTab('answer');
       
       toast({
@@ -77,12 +67,15 @@ const Index = () => {
   };
 
   const handleGenerateSolutions = async () => {
-    if (!currentPaper || !apiKey) return;
+    if (!currentPaper) return;
     
     setLoading(true);
     try {
-      const solutionContent = await generateSolutions(currentPaper.questions, apiKey);
+      const solutionContent = await generateSolutions(currentPaper.id);
       setSolutions(solutionContent);
+      setCurrentPaper(prev => prev ? { ...prev, solutions: solutionContent } : null);
+      setPaperHistory(prev => prev.map(p => p.id === currentPaper.id ? { ...p, solutions: solutionContent } : p));
+      
       toast({
         title: "Solutions Generated!",
         description: "Solutions have been generated successfully.",
@@ -100,13 +93,16 @@ const Index = () => {
   };
 
   const handleSubmitAnswers = async (answers: string[]) => {
-    if (!currentPaper || !apiKey) return;
+    if (!currentPaper) return;
     
     setLoading(true);
     try {
-      const result = await evaluateAnswers(currentPaper.questions, answers, apiKey);
+      const result = await evaluateAnswers(currentPaper.id, answers);
       setEvaluationResult(result);
+      setCurrentPaper(prev => prev ? { ...prev, evaluationResult: result } : null);
+      setPaperHistory(prev => prev.map(p => p.id === currentPaper.id ? { ...p, evaluationResult: result } : p));
       setActiveTab('evaluate');
+      
       toast({
         title: "Answers Evaluated!",
         description: "Your answers have been evaluated successfully.",
@@ -125,8 +121,8 @@ const Index = () => {
 
   const handleSelectPaper = (paper: QuestionPaper) => {
     setCurrentPaper(paper);
-    setSolutions('');
-    setEvaluationResult('');
+    setSolutions(paper.solutions || '');
+    setEvaluationResult((paper as any).evaluationResult || '');
     setActiveTab('answer');
   };
 
@@ -138,22 +134,7 @@ const Index = () => {
     { id: 'history', label: 'History', icon: '📜' }
   ];
 
-  const getChatbotContext = () => {
-    if (currentPaper) {
-      return `Current Question Paper:\n${currentPaper.questions}${solutions ? `\n\nSolutions:\n${solutions}` : ''}`;
-    }
-    return undefined;
-  };
-
   const renderContent = () => {
-    if (!apiKey) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <ApiKeyInput onSave={saveApiKey} />
-        </div>
-      );
-    }
-
     switch (activeTab) {
       case 'generate':
         return <PaperForm onSubmit={handleGeneratePaper} loading={loading} />;
@@ -183,7 +164,7 @@ const Index = () => {
       
       case 'history':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 animate-fade-in">
             <h2 className="text-xl font-semibold mb-4">Paper History</h2>
             {paperHistory.length === 0 ? (
               <p className="text-gray-500">No papers generated yet.</p>
@@ -192,14 +173,14 @@ const Index = () => {
                 {paperHistory.map((paper) => (
                   <div
                     key={paper.id}
-                    className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-all hover:scale-[1.01]"
                     onClick={() => handleSelectPaper(paper)}
                   >
-                    <h3 className="font-medium">{paper.subject} - Class {paper.class}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="font-medium text-indigo-600 dark:text-indigo-400">{paper.subject} - Class {paper.class}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {paper.chapters.join(', ')} • {paper.totalMarks} marks • {paper.difficulty}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 mt-2">
                       Created: {paper.createdAt.toLocaleDateString()}
                     </p>
                   </div>
@@ -216,21 +197,8 @@ const Index = () => {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors relative">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors relative pb-16">
         <Header />
-        
-        {apiKey && (
-          <div className="absolute top-4 right-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearApiKey}
-              className="text-xs"
-            >
-              Change API Key
-            </Button>
-          </div>
-        )}
         
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
@@ -243,26 +211,25 @@ const Index = () => {
               </p>
             </div>
             
-            {apiKey && (
-              <TabNavigation
-                tabs={tabs}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
-            )}
+            <TabNavigation
+              tabs={tabs}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
             
             {loading && <LoadingSpinner />}
             
-            <div className="transition-all duration-300">
+            <div className="transition-all duration-300 mt-6">
               {renderContent()}
             </div>
           </div>
         </main>
         
-        {apiKey && <Chatbot context={getChatbotContext()} apiKey={apiKey} />}
+        <Chatbot paperId={currentPaper?.id} />
       </div>
     </ThemeProvider>
   );
 };
 
 export default Index;
+
