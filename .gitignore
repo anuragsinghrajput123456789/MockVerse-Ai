@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 
 # MockVerse Generated Artifacts & Environment Configs
+frontend/public/*.pdf
 public/*.pdf
 backend/.env
+
 

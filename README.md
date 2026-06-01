@@ -1,15 +1,62 @@
 # MockVerse.(AI) — Paper Pal Smart Grade 🌟
 
-MockVerse.(AI) is a state-of-the-art, full-stack educational AI workspace that empowers students and educators to **generate high-fidelity question papers**, **explore step-by-step solutions**, **evaluate submitted answers with deep metrics**, and **discuss concepts in real-time** with an active AI study assistant. 
+MockVerse.(AI) is a state-of-the-art, full-stack educational AI workspace that empowers students and educators to **generate high-fidelity question papers**, **explore step-by-step solutions**, **evaluate submitted answers with deep metrics**, and **discuss concepts in real-time** with an active AI study assistant.
 
 This project is built using a modern **MySQL, Express, React, and Node.js (PERN) Stack**, using **Prisma ORM** for type-safe database access, **JWT token security**, and secure backend proxying of **Google Gemini AI**.
+
+---
+
+## 🏗️ Folder Structure & Architecture
+
+The project has been restructured into a clean, modern, dedicated multi-directory setup:
+
+```text
+MockVerse(Ai)
+├── backend/                  # Express API Server & Database configs
+│   ├── prisma/               # Prisma Database Schemas & Migrations
+│   │   └── schema.prisma     # MySQL Schema definition
+│   ├── src/
+│   │   ├── config/           # Database instances (Prisma)
+│   │   ├── controllers/      # Auth & AI Paper controllers
+│   │   ├── middleware/       # JWT route guard middleware
+│   │   └── server.js         # Express listener & static file server
+│   ├── .env.example          # Sample environment templates
+│   ├── .gitignore            # Backend ignore filters
+│   └── package.json          # Node dependencies & run scripts
+│
+├── frontend/                 # Vite + React + TS Client Application
+│   ├── public/               # Static assets & illustrations
+│   │   └── images/           # Premium Vector Workspace Hero illustrations
+│   ├── src/
+│   │   ├── components/       # Shadcn UI widgets, chatbot, & menus
+│   │   ├── contexts/         # React Theme & Auth global state handlers
+│   │   ├── hooks/            # Toast notifications & states
+│   │   ├── pages/            # Auth login & Main dashboard page layouts
+│   │   └── services/         # apiService.ts client fetching layer
+│   ├── index.html            # Core entry layout HTML
+│   ├── vite.config.ts        # Vite routing & compiler maps
+│   ├── tailwind.config.ts    # Custom dashboard color tokens (indigo/pink/slate)
+│   └── package.json          # Client dependencies & scripts
+│
+├── .gitignore                # Global version control ignores (generated PDFs, local envs)
+└── README.md                 # Complete full-stack guide & manuals (This File)
+```
+
+### 🤝 Data Sync Diagram
+```mermaid
+graph TD
+    Client[Vite React + TS Client :8080] <-->|JSON / JWT Header| Server[Express.js Node Server :5000]
+    Server <-->|Prisma Client| DB[(MySQL Database)]
+    Server <-->|Secure Https SDK| Gemini[Google Gemini 1.5 Flash AI API]
+```
 
 ---
 
 ## 🚀 Key Features
 
 * **🔐 Advanced JWT Authentication**: Secure glassmorphic user registration (signup) and login. Passwords are encrypted on the server with `bcryptjs`. Session states are isolated per-user.
-* **✨ AI Question Paper Generator**: Generate comprehensive exam papers by specifying Subject, Grade/Class, Chapters, Board patterns (NCERT, CBSE, etc.), Difficulty level (Easy, Medium, Hard), and custom instructions.
+* **✨ Split-Screen Authorization Design**: A premium double-column landing layout containing the glassmorphic authentication cards on the left, and a beautiful vector **AI Dashboard Workspace illustration** on the right.
+* **📝 AI Question Paper Generator**: Generate comprehensive exam papers by specifying Subject, Grade/Class, Chapters, Board patterns (NCERT, CBSE, etc.), Difficulty level (Easy, Medium, Hard), and custom instructions.
 * **✏️ Step-by-Step Solutions**: Instantiate complete solution keys with explanations, alternative approaches, and final answer highlights for any generated exam.
 * **📊 AI Answer Evaluation**: Input student answers and receive an analytical score sheet, including total marks obtained, a percentage rating, and granular, question-by-question academic feedback.
 * **💬 Context-Aware AI Chatbot**: A companion study bot that remembers the context of the active question paper to explain terms, give conceptual hints, and encourage the student.
@@ -17,24 +64,7 @@ This project is built using a modern **MySQL, Express, React, and Node.js (PERN)
 
 ---
 
-## 🛠️ Full-Stack Technical Architecture
-
-```mermaid
-graph TD
-    Client[Vite React + TS Frontend :8080] <-->|JSON / JWT Header| Server[Express.js Node Backend :5000]
-    Server <-->|Prisma Client| DB[(MySQL Database)]
-    Server <-->|HTTPS API Key Secure| Gemini[Google Gemini 1.5 Flash AI API]
-```
-
-### Stack Components
-1. **Frontend**: Vite, React 18, TypeScript, TailwindCSS, Radix UI primitives, Lucide Icons, hookform/resolvers, and global state management.
-2. **Backend**: Express.js, JWT, bcryptjs, CORS, ES Modules.
-3. **Database & ORM**: MySQL database layer configured and structured through Prisma ORM.
-4. **AI Engine**: Google Gemini AI model (`gemini-1.5-flash-latest`).
-
----
-
-## 📦 API Endpoints
+## 📦 API Endpoints Reference
 
 ### 🔑 Authentication Routes (`/api/auth/*`)
 * `POST /api/auth/signup` - Register a new user account. Returns user metadata and JWT token.
@@ -86,8 +116,11 @@ npx prisma migrate dev --name init
 ```
 
 ### 3. Frontend Installation
-In a separate terminal, from the root folder:
+Navigate to the `/frontend` folder in a separate terminal:
 ```bash
+# Enter frontend directory
+cd frontend
+
 # Install frontend-side dependencies
 npm install
 ```
@@ -102,6 +135,7 @@ npm run dev
 
 #### Launch the Vite Frontend (Port 8080):
 ```bash
+cd frontend
 npm run dev
 ```
 Open `http://localhost:8080` in your web browser.
@@ -115,11 +149,12 @@ To support seamless production deployments (e.g. Heroku, Render, AWS, or Digital
 
 1. **Build the Frontend Assets**:
    ```bash
-   # From the root directory, compile Vite React static files
+   # From the /frontend directory, compile Vite React static files
+   cd frontend
    npm run build
    ```
-   This generates standard, highly optimized HTML/CSS/JS bundles in `/dist`.
+   This generates standard, highly optimized HTML/CSS/JS bundles in `/frontend/dist`.
 
 2. **Run in Production Mode**:
    Set `NODE_ENV=production` on your hosting service environment variables. 
-   When starting the backend with `npm start`, the Express server will automatically serve the static `/dist` files, allowing you to run the complete MERN application on a single port!
+   When starting the backend with `npm start`, the Express server will automatically serve the static `/frontend/dist` files, allowing you to run the complete MERN application on a single port!

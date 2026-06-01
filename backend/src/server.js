@@ -49,7 +49,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(__dirname, '../../../dist');
+  const distPath = path.join(__dirname, '../../frontend/dist');
   app.use(express.static(distPath));
 
   app.get('*', (req, res, next) => {
