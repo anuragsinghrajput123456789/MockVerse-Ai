@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import UserMenu from "./UserMenu";
 import { 
   Home, 
   Sparkles, 
@@ -12,7 +11,8 @@ import {
   Settings, 
   Menu, 
   X, 
-  Cpu 
+  Cpu,
+  LogOut
 } from "lucide-react";
 
 interface HeaderProps {
@@ -90,34 +90,25 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
 
           {/* Action buttons (Settings, UserMenu) */}
           <div className="flex items-center space-x-3 shrink-0">
-            {/* Profile & Settings (Desktop Tabs integration) */}
+            {/* Profile & Account Settings (Desktop Tabs integration) */}
             <div className="hidden sm:flex items-center space-x-1">
               <button
                 onClick={() => handleTabClick("profile")}
-                className={`p-2.5 rounded-xl border transition-all duration-300 ${
+                className={`p-2.5 rounded-xl border transition-all duration-300 flex items-center space-x-2 ${
                   activeTab === "profile" 
                     ? "bg-indigo-500/20 border-indigo-500 text-white" 
                     : "bg-white/5 border-white/10 hover:border-indigo-500/30 hover:bg-white/10 text-slate-300 hover:text-white"
                 }`}
-                title="Profile"
+                title="Profile & Settings"
               >
                 <User className="w-4.5 h-4.5" />
-              </button>
-              <button
-                onClick={() => handleTabClick("settings")}
-                className={`p-2.5 rounded-xl border transition-all duration-300 ${
-                  activeTab === "settings" 
-                    ? "bg-pink-500/20 border-pink-500 text-white" 
-                    : "bg-white/5 border-white/10 hover:border-pink-500/30 hover:bg-white/10 text-slate-300 hover:text-white"
-                }`}
-                title="Settings"
-              >
-                <Settings className="w-4.5 h-4.5" />
+                {user && (
+                  <span className="text-xs font-semibold pr-1 max-w-[80px] truncate">
+                    {user.name || "Student"}
+                  </span>
+                )}
               </button>
             </div>
-
-            {/* User Dropdown Menu */}
-            <UserMenu user={user} onLogout={logout} loading={loading} />
 
             {/* Mobile Hamburger Button (Visible on screens smaller than lg) */}
             <button
@@ -188,15 +179,15 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                   <span>Profile</span>
                 </button>
                 <button
-                  onClick={() => handleTabClick("settings")}
-                  className={`flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
-                    activeTab === "settings"
-                      ? "bg-pink-500/20 border-pink-500 text-white"
-                      : "bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
-                  }`}
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  disabled={loading}
+                  className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-white transition-all disabled:opacity-50 text-xs font-semibold"
                 >
-                  <Settings className="w-3.5 h-3.5" />
-                  <span>Settings</span>
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{loading ? "Signing out..." : "Logout"}</span>
                 </button>
               </div>
             </div>
