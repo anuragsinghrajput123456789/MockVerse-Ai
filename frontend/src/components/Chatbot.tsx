@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, Send, X, Minimize2 } from 'lucide-react';
+import { MessageCircle, Send, X, Minimize2, Cpu, User, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { ScrollArea } from './ui/scroll-area';
 import { sendChatMessage } from '../services/apiService';
 import { useToast } from '../hooks/use-toast';
 
@@ -24,7 +21,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ paperId }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your AI study assistant. How can I help you today?',
+      text: "Hello! I'm your MockVerse AI study companion. Ask me anything about your current question paper, subjects, or study plans!",
       isUser: false,
       timestamp: new Date(),
     },
@@ -70,8 +67,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ paperId }) => {
     } catch (error: any) {
       console.error('Error sending message:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to send message. Please try again.",
+        title: "Assistant Error",
+        description: error.message || "Failed to reach AI tutor. Please check server connection.",
         variant: "destructive",
       });
     } finally {
@@ -88,101 +85,136 @@ const Chatbot: React.FC<ChatbotProps> = ({ paperId }) => {
 
   if (!isOpen) {
     return (
-      <Button
+      <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg z-50"
-        size="sm"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-[0_0_25px_rgba(99,102,241,0.4)] hover:shadow-[0_0_35px_rgba(236,72,153,0.5)] z-50 group border border-white/20 animate-pulse-glow"
+        aria-label="Open Chatbot"
       >
-        <MessageCircle className="h-6 w-6" />
-      </Button>
+        <MessageCircle className="h-6 w-6 transition-transform group-hover:rotate-6" />
+      </button>
     );
   }
 
   return (
-    <Card className={`fixed bottom-6 right-6 w-80 shadow-lg z-50 transition-all duration-300 ${
-      isMinimized ? 'h-14' : 'h-96'
+    <div className={`fixed bottom-6 right-6 w-96 max-w-[calc(100vw-2rem)] glass-panel border border-white/10 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.6)] z-50 overflow-hidden transition-all duration-300 flex flex-col ${
+      isMinimized ? 'h-16' : 'h-[500px]'
     }`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">AI Study Assistant</CardTitle>
-        <div className="flex items-center space-x-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsMinimized(!isMinimized)}
-            className="h-8 w-8 p-0"
-          >
-            <Minimize2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsOpen(false)}
-            className="h-8 w-8 p-0"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+      {/* Absolute ambient mesh backdrop */}
+      <div className="absolute inset-0 glow-bg-indigo opacity-25 pointer-events-none rounded-full blur-[80px] -top-1/2" />
+
+      {/* Header */}
+      <div className="flex h-16 items-center justify-between border-b border-white/10 px-5 relative z-10 shrink-0 bg-slate-950/40 backdrop-blur-md">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-pink-500 flex items-center justify-center text-white shadow-md">
+            <Cpu className="w-4 h-4 animate-float" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-white tracking-wide leading-none flex items-center gap-1">
+              <span>AI Tutor Assistant</span>
+              <Sparkles className="w-3 h-3 text-pink-400 fill-pink-400" />
+            </h3>
+            <span className="text-[9px] text-emerald-400 font-semibold tracking-widest uppercase mt-1 block flex items-center gap-1 leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
+              Online
+            </span>
+          </div>
         </div>
-      </CardHeader>
+
+        <div className="flex items-center space-x-1.5">
+          <button
+            onClick={() => setIsMinimized(!isMinimized)}
+            className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+            title="Minimize"
+          >
+            <Minimize2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+            title="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
       
       {!isMinimized && (
-        <CardContent className="flex flex-col h-[calc(100%-3.5rem)] p-0">
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              {messages.map((message) => (
+        <>
+          {/* Messages Stream */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 relative z-10 scrollbar-thin">
+            {messages.map((message) => {
+              const isUser = message.isUser;
+              return (
                 <div
                   key={message.id}
-                  className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                  className={`flex items-start gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
                 >
+                  {!isUser && (
+                    <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-indigo-400 shrink-0 mt-0.5 shadow-sm">
+                      <Cpu className="w-3.5 h-3.5" />
+                    </div>
+                  )}
+                  
                   <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                      message.isUser
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                    className={`max-w-[75%] rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-sm ${
+                      isUser
+                        ? 'bg-gradient-to-r from-indigo-500 to-pink-500 text-white rounded-tr-none font-medium'
+                        : 'bg-white/5 border border-white/5 text-slate-200 rounded-tl-none'
                     }`}
                   >
                     {message.text}
                   </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2 text-sm">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+
+                  {isUser && (
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-indigo-500/10 to-pink-500/10 border border-indigo-500/30 flex items-center justify-center text-pink-400 shrink-0 mt-0.5 shadow-sm">
+                      <User className="w-3.5 h-3.5" />
                     </div>
+                  )}
+                </div>
+              );
+            })}
+            
+            {isLoading && (
+              <div className="flex items-start gap-2.5 justify-start">
+                <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-indigo-400 shrink-0 mt-0.5">
+                  <Cpu className="w-3.5 h-3.5 animate-pulse" />
+                </div>
+                <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
+                  <div className="flex space-x-1.5 py-1">
+                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </ScrollArea>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
           
-          <div className="border-t p-4 mt-auto">
-            <div className="flex space-x-2">
-              <Input
+          {/* Input Panel */}
+          <div className="border-t border-white/10 p-4 relative z-10 bg-slate-950/20 shrink-0">
+            <div className="flex space-x-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-indigo-500/40 focus-within:ring-1 focus-within:ring-indigo-500/10 transition-all">
+              <input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask a question..."
+                onKeyDown={handleKeyPress}
+                placeholder="Ask your study assistant..."
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 bg-transparent border-none text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-0 w-full min-h-[36px]"
               />
-              <Button
+              <button
                 onClick={handleSendMessage}
                 disabled={isLoading || !inputMessage.trim()}
-                size="sm"
+                className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white flex items-center justify-center shadow-md transition-all hover:scale-105 shrink-0 self-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Send className="h-4 w-4" />
-              </Button>
+                <Send className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
-        </CardContent>
+        </>
       )}
-    </Card>
+    </div>
   );
 };
 
 export default Chatbot;
-

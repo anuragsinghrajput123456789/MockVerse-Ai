@@ -4,7 +4,6 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { QuestionPaperPDFLayoutProps } from "../components/QuestionPaperPDFLayout";
 import ReactDOM from "react-dom/client";
-import { unmountComponentAtNode } from "react-dom";
 import React from "react";
 import QuestionPaperPDFLayout from "../components/QuestionPaperPDFLayout";
 
@@ -27,15 +26,15 @@ export function useDownloadQuestionPaperPDF() {
       document.body.appendChild(container);
 
       // 2. Render the PDF layout into the container
-      const root = ReactDOM.createRoot(container);
-      root.render(
-        <QuestionPaperPDFLayout content={content} title={title} type={type} />
-      );
-
-      // Wait for render
-      await new Promise(res => setTimeout(res, 140));
-
+      let root: ReactDOM.Root | null = null;
       try {
+        root = ReactDOM.createRoot(container);
+        root.render(
+          <QuestionPaperPDFLayout content={content} title={title} type={type} />
+        );
+
+        // Wait for render
+        await new Promise(res => setTimeout(res, 140));
         // 3. Use html2canvas to capture each page
         const pdfWidth = 210;
         const pdfHeight = 297;
@@ -88,8 +87,16 @@ export function useDownloadQuestionPaperPDF() {
       } catch (err) {
         console.error('Error generating PDF:', err);
       } finally {
-        unmountComponentAtNode(container); // <-- use from react-dom
-        document.body.removeChild(container);
+        if (root) {
+          try {
+            root.unmount();
+          } catch (unmountError) {
+            console.error('Error unmounting root:', unmountError);
+          }
+        }
+        if (document.body.contains(container)) {
+          document.body.removeChild(container);
+        }
       }
     },
     []

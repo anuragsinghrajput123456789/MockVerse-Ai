@@ -1,8 +1,17 @@
-# MockVerse.(AI) — Paper Pal Smart Grade 🌟
+# MockVerse(AI) — Paper Pal Smart Grade 🌟
 
-MockVerse.(AI) is a state-of-the-art, full-stack educational AI workspace that empowers students and educators to **generate high-fidelity question papers**, **explore step-by-step solutions**, **evaluate submitted answers with deep metrics**, and **discuss concepts in real-time** with an active AI study assistant.
+MockVerse(AI) is a state-of-the-art, production-grade educational AI workspace that empowers students and educators to **generate high-fidelity question papers**, **explore worked solutions**, **evaluate submitted answers with deep metrics**, and **discuss concepts in real-time** with an active AI study tutor.
 
-This project is built using a modern **MySQL, Express, React, and Node.js (PERN) Stack**, using **Prisma ORM** for type-safe database access, **JWT token security**, and secure backend proxying of **Google Gemini AI**.
+This project is built using a modern **MongoDB, Express, React, and Node.js (MERN) Stack**, using **Mongoose** for direct, high-performance database access, **JWT token security**, and secure backend proxying of **Google Gemini AI**.
+
+---
+
+## 📸 Product Preview
+
+<div align="center">
+  <img src="frontend/public/images/mockverse_workspace_hero.png" alt="MockVerse Workspace Preview" width="600" style="border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5);" />
+  <p><em>Immersive full-stack AI-powered educational ecosystem.</em></p>
+</div>
 
 ---
 
@@ -13,12 +22,11 @@ The project has been restructured into a clean, modern, dedicated multi-director
 ```text
 MockVerse(Ai)
 ├── backend/                  # Express API Server & Database configs
-│   ├── prisma/               # Prisma Database Schemas & Migrations
-│   │   └── schema.prisma     # MySQL Schema definition
 │   ├── src/
-│   │   ├── config/           # Database instances (Prisma)
-│   │   ├── controllers/      # Auth & AI Paper controllers
+│   │   ├── config/           # Database connectivity (Mongoose)
+│   │   ├── controllers/      # Auth & AI Paper/Resource controllers
 │   │   ├── middleware/       # JWT route guard middleware
+│   │   ├── models/           # Mongoose schemas (User, QuestionPaper)
 │   │   └── server.js         # Express listener & static file server
 │   ├── .env.example          # Sample environment templates
 │   ├── .gitignore            # Backend ignore filters
@@ -46,7 +54,7 @@ MockVerse(Ai)
 ```mermaid
 graph TD
     Client[Vite React + TS Client :8080] <-->|JSON / JWT Header| Server[Express.js Node Server :5000]
-    Server <-->|Prisma Client| DB[(MySQL Database)]
+    Server <-->|Mongoose Queries| DB[(MongoDB Database)]
     Server <-->|Secure Https SDK| Gemini[Google Gemini 1.5 Flash AI API]
 ```
 
@@ -60,27 +68,27 @@ graph TD
 * **✏️ Step-by-Step Solutions**: Instantiate complete solution keys with explanations, alternative approaches, and final answer highlights for any generated exam.
 * **📊 AI Answer Evaluation**: Input student answers and receive an analytical score sheet, including total marks obtained, a percentage rating, and granular, question-by-question academic feedback.
 * **💬 Context-Aware AI Chatbot**: A companion study bot that remembers the context of the active question paper to explain terms, give conceptual hints, and encourage the student.
-* **📜 Persistent Exam History**: All question papers, solution sheets, and grading records are stored in a MySQL database so users can view their academic journey at any time.
+* **📚 CRUD Study Library**: Add study notes, textbooks, and tutorial resources. Modify details or purge records at any time.
+* **🔗 Base64 Quick Sharing**: Click to copy an encrypted Base64 URL for any library item, allowing quick sharing. Visiting users receive an interactive import overlay popup.
+* **📄 Clickable HTML Export**: Click the download action to compile your resource into a beautiful standalone single-file HTML sheet containing active clickable links.
+* **📜 Persistent Exam History**: All question papers, solution sheets, and grading records are stored in a MongoDB database so users can view their academic journey at any time.
 
 ---
 
 ## 📦 API Endpoints Reference
 
-### 🔑 Authentication Routes (`/api/auth/*`)
-* `POST /api/auth/signup` - Register a new user account. Returns user metadata and JWT token.
-* `POST /api/auth/login` - Login with credentials. Returns user metadata and JWT token.
-* `GET /api/auth/profile` - Get the logged-in user profile details (JWT Protected).
-
-### 📝 Question Paper & AI Routes (`/api/papers/*`)
-* `POST /api/papers` - Generate and save a new question paper (JWT Protected).
-* `GET /api/papers` - Fetch the authenticated user's complete paper history (JWT Protected).
-* `GET /api/papers/:id` - Fetch the detailed question paper by ID (JWT Protected).
-* `DELETE /api/papers/:id` - Delete a question paper by ID (JWT Protected).
-* `POST /api/papers/:id/solutions` - Generate step-by-step solution keys (JWT Protected).
-* `POST /api/papers/:id/evaluate` - Grade and evaluate student answers (JWT Protected).
-
-### 💬 Chatbot Route (`/api/chat/*`)
-* `POST /api/chat` - Message the educational chatbot inside the active paper context (JWT Protected).
+| Category | Endpoint | Method | Access | Description |
+| :--- | :--- | :---: | :---: | :--- |
+| **Auth** | `/api/auth/signup` | `POST` | Public | Register a new user account. Returns metadata and JWT. |
+| **Auth** | `/api/auth/login` | `POST` | Public | Login with credentials. Returns metadata and JWT. |
+| **Auth** | `/api/auth/profile` | `GET` | Private | Get details of the logged-in user profile. |
+| **Papers** | `/api/papers` | `POST` | Private | Generate and save a new custom AI question paper. |
+| **Papers** | `/api/papers` | `GET` | Private | Fetch the authenticated user's complete paper history. |
+| **Papers** | `/api/papers/:id` | `GET` | Private | Fetch a detailed question paper by ID. |
+| **Papers** | `/api/papers/:id` | `DELETE` | Private | Delete a question paper by ID. |
+| **Papers** | `/api/papers/:id/solutions` | `POST` | Private | Generate step-by-step worked solutions for a paper. |
+| **Papers** | `/api/papers/:id/evaluate` | `POST` | Private | Evaluate student answers and get itemized scorecards. |
+| **Chat** | `/api/chat` | `POST` | Private | Message the chatbot within the active paper context. |
 
 ---
 
@@ -90,7 +98,7 @@ Create a `.env` file inside the `/backend` folder with the following variables:
 
 ```env
 PORT=5000
-DATABASE_URL="mysql://YOUR_MYSQL_USER:YOUR_MYSQL_PASSWORD@localhost:3306/mockverse"
+MONGODB_URI="mongodb://127.0.0.1:27017/mockverse"
 JWT_SECRET="your_secure_jwt_random_string_key"
 GEMINI_API_KEY="your_google_gemini_api_key"
 ```
@@ -100,9 +108,9 @@ GEMINI_API_KEY="your_google_gemini_api_key"
 ## ⚡ Quickstart Guide
 
 ### 1. Prerequisites
-Ensure you have **Node.js** (v18+) and **MySQL** server installed and active on your system.
+Ensure you have **Node.js** (v18+) and **MongoDB** server (Community Edition or MongoDB Atlas cluster) active on your system.
 
-### 2. Backend Installation & Migration
+### 2. Backend Installation
 Navigate to the `/backend` folder:
 ```bash
 # Enter backend directory
@@ -110,9 +118,6 @@ cd backend
 
 # Install server-side dependencies
 npm install
-
-# Run Prisma schema migrations to set up MySQL database tables
-npx prisma migrate dev --name init
 ```
 
 ### 3. Frontend Installation
@@ -145,7 +150,7 @@ Open `http://localhost:8080` in your web browser.
 ## 🐳 Deployment Readiness & Production Build
 
 ### Serve Static Files Collectively
-To support seamless production deployments (e.g. Heroku, Render, AWS, or DigitalOcean), the Express backend has been configured to serve the static client assets:
+To support seamless production deployments (e.g. Heroku, Render, AWS, or DigitalOcean), the Express backend is configured to serve the static client assets:
 
 1. **Build the Frontend Assets**:
    ```bash

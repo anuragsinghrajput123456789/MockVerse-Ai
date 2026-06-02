@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import LoadingSpinner from "./components/LoadingSpinner";
 
 const AppContent = () => {
@@ -12,7 +13,8 @@ const AppContent = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+        <div className="animate-mesh-1 absolute inset-0 glow-bg-indigo opacity-30 pointer-events-none" />
         <LoadingSpinner />
       </div>
     );
@@ -22,13 +24,15 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <TooltipProvider>
-    <Toaster />
-    <Sonner />
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  </TooltipProvider>
+  <ThemeProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </TooltipProvider>
+  </ThemeProvider>
 );
 
 export default App;

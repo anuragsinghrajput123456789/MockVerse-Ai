@@ -7,6 +7,10 @@ import { fileURLToPath } from 'url';
 // Load environment variables
 dotenv.config();
 
+// Connect Database
+import connectDB from './config/db.js';
+connectDB();
+
 // Controllers & Middlewares
 import { signup, login, getProfile } from './controllers/authController.js';
 import { protect } from './middleware/auth.js';
@@ -23,8 +27,21 @@ import {
 const app = express();
 
 // Middlewares
+const allowedOrigins = [
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());

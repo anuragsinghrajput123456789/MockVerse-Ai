@@ -27,7 +27,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
   const { downloadPDF } = useDownloadQuestionPaperPDF();
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="glass-card rounded-2xl border border-white/5 shadow-2xl overflow-hidden animate-fade-in">
       <QuestionPaperHeader
         title={title}
         type={type}

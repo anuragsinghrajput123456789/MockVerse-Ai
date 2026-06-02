@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import prisma from '../config/db.js';
+import User from '../models/User.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mockverse_secret_jwt_key_2026';
 
@@ -23,9 +23,7 @@ export const signup = async (req, res) => {
 
   try {
     // Check if user already exists
-    const userExists = await prisma.user.findUnique({
-      where: { email },
-    });
+    const userExists = await User.findOne({ email });
 
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
@@ -36,20 +34,18 @@ export const signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-      },
+    const user = await User.create({
+      name: name || '',
+      email,
+      password: hashedPassword,
     });
 
     if (user) {
       res.status(201).json({
-        id: user.id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
-        token: generateToken(user.id),
+        token: generateToken(user._id.toString()),
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -72,17 +68,15 @@ export const login = async (req, res) => {
 
   try {
     // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = await User.findOne({ email });
 
     // Check if user exists and password matches
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
-        id: user.id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
-        token: generateToken(user.id),
+        token: generateToken(user._id.toString()),
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });

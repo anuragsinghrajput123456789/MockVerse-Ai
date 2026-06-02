@@ -1,6 +1,7 @@
-import prisma from '../config/db.js';
+import QuestionPaper from '../models/QuestionPaper.js';
+import mongoose from 'mongoose';
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
 // Helper to call Gemini API
 const callGemini = async (prompt, customApiKey) => {
@@ -42,7 +43,7 @@ const callGemini = async (prompt, customApiKey) => {
   return data.candidates[0].content.parts[0].text;
 };
 
-// @desc    Generate a new question paper and save to MySQL
+// @desc    Generate a new question paper and save to MongoDB
 // @route   POST /api/papers
 // @access  Private
 export const generatePaper = async (req, res) => {
@@ -99,24 +100,39 @@ Make it look professional and exam-ready. Use proper markdown formatting for bet
 
     const content = await callGemini(prompt, customApiKey);
 
-    // Save to database
-    const newPaper = await prisma.questionPaper.create({
-      data: {
-        subject,
-        class: studentClass,
-        totalMarks: Number(totalMarks) || 100,
-        difficulty: difficulty || 'Medium',
-        board: board || 'NCERT',
-        chapters,
-        topics: topics || '',
-        instructions: instructions || '',
-        pattern: pattern || 'Board-style',
-        questions: content,
-        userId: req.user.id,
-      },
+    // Save to MongoDB database
+    const paperInstance = await QuestionPaper.create({
+      subject,
+      class: studentClass,
+      totalMarks: Number(totalMarks) || 100,
+      difficulty: difficulty || 'Medium',
+      board: board || 'NCERT',
+      chapters, // Stored natively as String array
+      topics: topics || '',
+      instructions: instructions || '',
+      pattern: pattern || 'Board-style',
+      questions: content,
+      userId: req.user.id,
     });
 
-    res.status(201).json(newPaper);
+    res.status(201).json({
+      id: paperInstance._id.toString(),
+      subject: paperInstance.subject,
+      class: paperInstance.class,
+      totalMarks: paperInstance.totalMarks,
+      difficulty: paperInstance.difficulty,
+      board: paperInstance.board,
+      chapters: paperInstance.chapters,
+      topics: paperInstance.topics,
+      instructions: paperInstance.instructions,
+      pattern: paperInstance.pattern,
+      questions: paperInstance.questions,
+      solutions: paperInstance.solutions,
+      evaluationResult: paperInstance.evaluationResult,
+      createdAt: paperInstance.createdAt,
+      updatedAt: paperInstance.updatedAt,
+      userId: paperInstance.userId.toString()
+    });
   } catch (error) {
     console.error('Generate paper error:', error);
     res.status(500).json({ message: error.message || 'Server error generating question paper' });
@@ -128,11 +144,28 @@ Make it look professional and exam-ready. Use proper markdown formatting for bet
 // @access  Private
 export const getPapers = async (req, res) => {
   try {
-    const papers = await prisma.questionPaper.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(papers);
+    const papers = await QuestionPaper.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    
+    const parsedPapers = papers.map(paper => ({
+      id: paper._id.toString(),
+      subject: paper.subject,
+      class: paper.class,
+      totalMarks: paper.totalMarks,
+      difficulty: paper.difficulty,
+      board: paper.board,
+      chapters: paper.chapters,
+      topics: paper.topics,
+      instructions: paper.instructions,
+      pattern: paper.pattern,
+      questions: paper.questions,
+      solutions: paper.solutions,
+      evaluationResult: paper.evaluationResult,
+      createdAt: paper.createdAt,
+      updatedAt: paper.updatedAt,
+      userId: paper.userId.toString()
+    }));
+
+    res.json(parsedPapers);
   } catch (error) {
     console.error('Get papers error:', error);
     res.status(500).json({ message: 'Server error fetching papers' });
@@ -143,19 +176,37 @@ export const getPapers = async (req, res) => {
 // @route   GET /api/papers/:id
 // @access  Private
 export const getPaperById = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid question paper identifier format' });
+  }
   try {
-    const paper = await prisma.questionPaper.findFirst({
-      where: {
-        id: req.params.id,
-        userId: req.user.id,
-      },
+    const paper = await QuestionPaper.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
     });
 
     if (!paper) {
       return res.status(404).json({ message: 'Question paper not found or access denied' });
     }
 
-    res.json(paper);
+    res.json({
+      id: paper._id.toString(),
+      subject: paper.subject,
+      class: paper.class,
+      totalMarks: paper.totalMarks,
+      difficulty: paper.difficulty,
+      board: paper.board,
+      chapters: paper.chapters,
+      topics: paper.topics,
+      instructions: paper.instructions,
+      pattern: paper.pattern,
+      questions: paper.questions,
+      solutions: paper.solutions,
+      evaluationResult: paper.evaluationResult,
+      createdAt: paper.createdAt,
+      updatedAt: paper.updatedAt,
+      userId: paper.userId.toString()
+    });
   } catch (error) {
     console.error('Get paper by ID error:', error);
     res.status(500).json({ message: 'Server error fetching paper' });
@@ -166,21 +217,20 @@ export const getPaperById = async (req, res) => {
 // @route   DELETE /api/papers/:id
 // @access  Private
 export const deletePaper = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid question paper identifier format' });
+  }
   try {
-    const paper = await prisma.questionPaper.findFirst({
-      where: {
-        id: req.params.id,
-        userId: req.user.id,
-      },
+    const paper = await QuestionPaper.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
     });
 
     if (!paper) {
       return res.status(404).json({ message: 'Question paper not found or access denied' });
     }
 
-    await prisma.questionPaper.delete({
-      where: { id: req.params.id },
-    });
+    await QuestionPaper.deleteOne({ _id: req.params.id });
 
     res.json({ message: 'Question paper removed successfully' });
   } catch (error) {
@@ -193,12 +243,13 @@ export const deletePaper = async (req, res) => {
 // @route   POST /api/papers/:id/solutions
 // @access  Private
 export const generateSolutions = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid question paper identifier format' });
+  }
   try {
-    const paper = await prisma.questionPaper.findFirst({
-      where: {
-        id: req.params.id,
-        userId: req.user.id,
-      },
+    const paper = await QuestionPaper.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
     });
 
     if (!paper) {
@@ -224,13 +275,11 @@ Please format the solutions with:
     const customApiKey = req.headers['x-api-key'];
     const solutionContent = await callGemini(prompt, customApiKey);
 
-    // Update database
-    const updatedPaper = await prisma.questionPaper.update({
-      where: { id: paper.id },
-      data: { solutions: solutionContent },
-    });
+    // Update database Mongoose
+    paper.solutions = solutionContent;
+    await paper.save();
 
-    res.json({ solutions: updatedPaper.solutions });
+    res.json({ solutions: paper.solutions });
   } catch (error) {
     console.error('Generate solutions error:', error);
     res.status(500).json({ message: error.message || 'Server error generating solutions' });
@@ -247,12 +296,13 @@ export const evaluateAnswers = async (req, res) => {
     return res.status(400).json({ message: 'Answers array is required' });
   }
 
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid question paper identifier format' });
+  }
   try {
-    const paper = await prisma.questionPaper.findFirst({
-      where: {
-        id: req.params.id,
-        userId: req.user.id,
-      },
+    const paper = await QuestionPaper.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
     });
 
     if (!paper) {
@@ -276,13 +326,11 @@ Make it structured and easy to read.`;
     const customApiKey = req.headers['x-api-key'];
     const evaluationContent = await callGemini(prompt, customApiKey);
 
-    // Update database
-    const updatedPaper = await prisma.questionPaper.update({
-      where: { id: paper.id },
-      data: { evaluationResult: evaluationContent },
-    });
+    // Update database Mongoose
+    paper.evaluationResult = evaluationContent;
+    await paper.save();
 
-    res.json({ evaluationResult: updatedPaper.evaluationResult });
+    res.json({ evaluationResult: paper.evaluationResult });
   } catch (error) {
     console.error('Evaluate answers error:', error);
     res.status(500).json({ message: error.message || 'Server error evaluating answers' });
@@ -302,12 +350,10 @@ export const chatbot = async (req, res) => {
   try {
     let contextPrompt = '';
     
-    if (paperId) {
-      const paper = await prisma.questionPaper.findFirst({
-        where: {
-          id: paperId,
-          userId: req.user.id,
-        },
+    if (paperId && mongoose.Types.ObjectId.isValid(paperId)) {
+      const paper = await QuestionPaper.findOne({
+        _id: paperId,
+        userId: req.user.id,
       });
 
       if (paper) {
@@ -319,7 +365,7 @@ export const chatbot = async (req, res) => {
     const prompt = `You are an AI educational assistant helping students with their studies. 
 ${contextPrompt}
 Student's question: ${message}
-
+ 
 Please provide a helpful, educational response that helps the student understand the concepts better. Be clear, concise, and encouraging.`;
 
     const customApiKey = req.headers['x-api-key'];
