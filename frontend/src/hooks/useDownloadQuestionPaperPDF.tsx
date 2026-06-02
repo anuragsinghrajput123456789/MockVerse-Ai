@@ -35,6 +35,15 @@ export function useDownloadQuestionPaperPDF() {
 
         // Wait for render
         await new Promise(res => setTimeout(res, 140));
+
+        // Trigger MathJax compilation on our off-screen container
+        const MJ = (window as any).MathJax;
+        if (MJ && MJ.typesetPromise) {
+          await MJ.typesetPromise([container]);
+          // Wait a tiny bit for typeset drawings to settle
+          await new Promise(res => setTimeout(res, 80));
+        }
+
         // 3. Use html2canvas to capture each page
         const pdfWidth = 210;
         const pdfHeight = 297;

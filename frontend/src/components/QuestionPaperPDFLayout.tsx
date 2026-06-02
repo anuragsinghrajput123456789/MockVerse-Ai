@@ -19,7 +19,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
 
   return (
     <div
-      className="pdf-main-content"
+      className="pdf-main-content tex2jax_process"
       style={{
         width: "210mm",
         minHeight: "297mm",

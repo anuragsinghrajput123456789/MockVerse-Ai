@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -7,8 +7,16 @@ interface QuestionPaperMarkdownContentProps {
 }
 
 const QuestionPaperMarkdownContent: React.FC<QuestionPaperMarkdownContentProps> = ({ content }) => {
+  useEffect(() => {
+    // Dynamic typesetting call for SPA rendering updates
+    const MJ = (window as any).MathJax;
+    if (MJ && MJ.typesetPromise) {
+      MJ.typesetPromise().catch((err: any) => console.error("MathJax typeset error:", err));
+    }
+  }, [content]);
+
   return (
-    <div className="prose prose-slate max-w-none text-slate-300 prose-invert font-sans">
+    <div className="prose prose-slate max-w-none text-slate-300 prose-invert font-sans tex2jax_process">
       <ReactMarkdown 
         remarkPlugins={[remarkGfm]}
         components={{
