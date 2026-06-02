@@ -1,0 +1,22 @@
+services:
+  # MockVerse(AI) Full-Stack express & react service
+  - type: web
+    name: mockverse-ai-platform
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build --prefix ../frontend
+    startCommand: npm start
+    rootDir: backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false
+        placeholder: "mongodb+srv://user:pass@cluster.mongodb.net/mockverse"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+        placeholder: "Enter Google Gemini API Key"
