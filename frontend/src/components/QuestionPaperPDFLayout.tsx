@@ -31,49 +31,45 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
       style={{
         width: "210mm",
         minHeight: "297mm",
-        margin: "0 auto",
+        margin: "0",
         background: "#fff",
         fontFamily: "'Times New Roman', Times, serif",
         fontSize: "13pt",
         color: "#000",
         boxSizing: "border-box",
         padding: "18mm 15mm 20mm 15mm",
-        display: "flex",
-        flexDirection: "column",
-        gap: 0,
+        display: "block",
         border: "none"
       }}
     >
       {/* Header */}
       <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
           border: "1.5px solid #222",
-          padding: 0,
+          padding: "14px 10px",
           width: "100%",
           marginBottom: "13px",
-          background: "#fff"
+          background: "#fff",
+          textAlign: "center",
+          boxSizing: "border-box",
+          display: "block"
         }}
       >
         <div
           style={{
-            padding: "16px 0 0 0",
             fontWeight: 700,
             fontSize: "19pt",
             letterSpacing: "1px",
-            textAlign: "center",
-            textTransform: "uppercase"
+            textTransform: "uppercase",
+            marginBottom: "8px"
           }}
         >
-          QUESTION PAPER
+          {type === "question" ? "QUESTION PAPER" : "SOLUTIONS KEY"}
         </div>
         <div
           style={{
-            padding: "0 0 13px 0",
-            textAlign: "center",
-            fontSize: "11.5pt"
+            fontSize: "11.5pt",
+            lineHeight: 1.5
           }}
         >
           SUBJECT: <b>{title}</b> &nbsp;&nbsp;|&nbsp;&nbsp;
@@ -108,8 +104,9 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
           <ul
             style={{
               margin: 0,
-              padding: "0 0 0 20px",
+              padding: "0 0 0 5px",
               listStyleType: "square",
+              listStylePosition: "inside",
               lineHeight: 1.7
             }}
           >
@@ -204,7 +201,8 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
                 style={{
                   marginTop: "8px",
                   marginBottom: "8px",
-                  paddingLeft: "25px"
+                  paddingLeft: "5px",
+                  listStylePosition: "inside"
                 }}
                 {...props}
               />
@@ -212,10 +210,10 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
             ul: ({node, ...props}) => (
               <ul
                 style={{
-                  paddingLeft: "20px",
+                  paddingLeft: "5px",
                   marginTop: "4px",
                   marginBottom: "7px",
-                  listStyleType: "lower-alpha"
+                  listStylePosition: "inside"
                 }}
                 {...props}
               />
