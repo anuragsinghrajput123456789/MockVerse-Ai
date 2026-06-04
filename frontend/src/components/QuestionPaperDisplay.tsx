@@ -14,6 +14,10 @@ interface QuestionPaperDisplayProps {
   onGenerateSolutions?: () => void;
   onStartAnswering?: () => void;
   loading?: boolean;
+  classVal?: string;
+  totalMarks?: number;
+  difficulty?: string;
+  board?: string;
 }
 
 const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
@@ -22,7 +26,11 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
   type = 'question',
   onGenerateSolutions,
   onStartAnswering,
-  loading
+  loading,
+  classVal,
+  totalMarks,
+  difficulty,
+  board
 }) => {
   const { downloadPDF } = useDownloadQuestionPaperPDF();
 
@@ -34,7 +42,7 @@ const QuestionPaperDisplay: React.FC<QuestionPaperDisplayProps> = ({
         loading={loading}
         onGenerateSolutions={onGenerateSolutions}
         onStartAnswering={onStartAnswering}
-        onDownloadPDF={() => downloadPDF({ content, title, type })}
+        onDownloadPDF={() => downloadPDF({ content, title, type, classVal, totalMarks, difficulty, board })}
       />
       <div className="p-6">
         <div id={`${type}-paper-content`}>

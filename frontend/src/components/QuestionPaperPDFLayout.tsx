@@ -7,12 +7,20 @@ export interface QuestionPaperPDFLayoutProps {
   content: string;
   title: string;
   type?: "question" | "solution";
+  classVal?: string;
+  totalMarks?: number;
+  difficulty?: string;
+  board?: string;
 }
 
 const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
   content,
   title,
-  type = "question"
+  type = "question",
+  classVal = "",
+  totalMarks = 100,
+  difficulty = "Medium",
+  board = "NCERT"
 }) => {
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-GB");
@@ -68,8 +76,10 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
             fontSize: "11.5pt"
           }}
         >
-          SUBJECT: <b>{title}</b> &nbsp;&nbsp;|&nbsp;&nbsp; CLASS: &nbsp;&nbsp;|&nbsp;&nbsp; 
-          MAX MARKS: 100 &nbsp;&nbsp;|&nbsp;&nbsp; TIME: 3 Hours
+          SUBJECT: <b>{title}</b> &nbsp;&nbsp;|&nbsp;&nbsp;
+          CLASS: <b>{classVal ? (classVal.toLowerCase().includes('grade') || isNaN(Number(classVal)) ? classVal : `${classVal}th Grade`) : 'N/A'}</b> &nbsp;&nbsp;|&nbsp;&nbsp;
+          BOARD: <b>{board || 'N/A'}</b> &nbsp;&nbsp;|&nbsp;&nbsp;
+          MARKS: <b>{totalMarks}</b>
         </div>
       </div>
 
@@ -297,7 +307,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
           fontWeight: "normal"
         }}
       >
-        Generated on {formattedDate} | {type === "question" ? "Question Paper" : "Solutions"} | Page
+        Generated on {formattedDate} | {type === "question" ? "Question Paper" : "Solutions"}
       </div>
     </div>
   );

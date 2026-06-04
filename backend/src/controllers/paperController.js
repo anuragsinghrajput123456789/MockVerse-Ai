@@ -36,11 +36,42 @@ const callGemini = async (prompt, customApiKey) => {
   }
 
   const data = await response.json();
-  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+  if (!data.candidates || !data.candidates[0]) {
     throw new Error('Invalid response from Gemini API');
   }
 
-  return data.candidates[0].content.parts[0].text;
+  const candidate = data.candidates[0];
+  if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
+    if (candidate.finishReason === 'SAFETY') {
+      throw new Error('Content generation was blocked by AI safety settings. Please try adjusting your parameters.');
+    } else if (candidate.finishReason === 'RECITATION') {
+      throw new Error('Content generation was blocked due to a citation/recitation check. Please try a different prompt.');
+    } else {
+      throw new Error(`Content generation failed: ${candidate.finishReason}`);
+    }
+  }
+
+  if (!candidate.content) {
+    throw new Error('No content returned from Gemini API candidates');
+  }
+
+  const parts = candidate.content.parts;
+  if (!parts || parts.length === 0) {
+    throw new Error('No content parts returned from Gemini API');
+  }
+
+  // Filter out thinking/reasoning parts (where part.thought === true) and join the text contents
+  const textContent = parts
+    .filter(part => !part.thought)
+    .map(part => part.text || '')
+    .join('')
+    .trim();
+
+  if (!textContent) {
+    throw new Error('No text content returned after filtering thoughts');
+  }
+
+  return textContent;
 };
 
 // @desc    Generate a new question paper and save to MongoDB

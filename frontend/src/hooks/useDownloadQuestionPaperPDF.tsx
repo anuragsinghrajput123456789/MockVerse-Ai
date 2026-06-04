@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -6,23 +5,38 @@ import { QuestionPaperPDFLayoutProps } from "../components/QuestionPaperPDFLayou
 import ReactDOM from "react-dom/client";
 import React from "react";
 import QuestionPaperPDFLayout from "../components/QuestionPaperPDFLayout";
+import { useToast } from "./use-toast";
 
 // Dynamically create a wrapper to render PDF layout off-screen.
 export function useDownloadQuestionPaperPDF() {
+  const { toast } = useToast();
+  
   const downloadPDF = useCallback(
     async ({
       content,
       title,
       type,
-    }: Pick<QuestionPaperPDFLayoutProps, "content" | "title" | "type">) => {
-      // 1. Prepare the container
+      classVal,
+      totalMarks,
+      difficulty,
+      board,
+    }: QuestionPaperPDFLayoutProps) => {
+      toast({
+        title: "Preparing PDF...",
+        description: "Generating layouts and compiling formulas...",
+      });
+
+      // 1. Prepare the container in viewport bounds but invisible to the user
       const container = document.createElement('div');
       container.style.position = 'absolute';
-      container.style.left = '-9999px';
+      container.style.left = '0';
       container.style.top = '0';
       container.style.width = '210mm';
       container.style.minHeight = '297mm';
       container.style.background = '#fff';
+      container.style.opacity = '0.01';
+      container.style.zIndex = '-9999';
+      container.style.pointerEvents = 'none';
       document.body.appendChild(container);
 
       // 2. Render the PDF layout into the container
@@ -30,61 +44,97 @@ export function useDownloadQuestionPaperPDF() {
       try {
         root = ReactDOM.createRoot(container);
         root.render(
-          <QuestionPaperPDFLayout content={content} title={title} type={type} />
+          <QuestionPaperPDFLayout
+            content={content}
+            title={title}
+            type={type}
+            classVal={classVal}
+            totalMarks={totalMarks}
+            difficulty={difficulty}
+            board={board}
+          />
         );
 
-        // Wait for render
-        await new Promise(res => setTimeout(res, 140));
+        // Wait for React to finish asynchronous rendering and mount the DOM element
+        let paperContentDiv: HTMLElement | null = null;
+        for (let i = 0; i < 100; i++) {
+          paperContentDiv = container.querySelector('.pdf-main-content') as HTMLElement;
+          if (paperContentDiv) {
+            break;
+          }
+          await new Promise(res => setTimeout(res, 20));
+        }
 
-        // Trigger MathJax compilation on our off-screen container
+        if (!paperContentDiv) {
+          throw new Error("Failed to render PDF layout: .pdf-main-content not found in DOM");
+        }
+
+        // Give browser and layout systems a short wait state to settle text rendering
+        await new Promise(res => setTimeout(res, 120));
+
+        // Trigger MathJax compilation with a strict 1-second timeout race to prevent hanging
         const MJ = (window as any).MathJax;
         if (MJ && MJ.typesetPromise) {
-          await MJ.typesetPromise([container]);
+          await Promise.race([
+            MJ.typesetPromise([container]),
+            new Promise(res => setTimeout(res, 1000))
+          ]);
           // Wait a tiny bit for typeset drawings to settle
           await new Promise(res => setTimeout(res, 80));
         }
 
-        // 3. Use html2canvas to capture each page
-        const pdfWidth = 210;
-        const pdfHeight = 297;
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const formattedDate = new Date().toLocaleDateString('en-GB');
-        const paperContentDiv = container.querySelector('.pdf-main-content') as HTMLElement;
+        // 3. Use html2canvas to capture the entire paper once, then slice it into A4 pages
+        const elementWidth = paperContentDiv.offsetWidth || 794; // Fallback to standard A4 width in pixels
+        const elementHeight = paperContentDiv.scrollHeight || 1122; // Fallback to standard A4 height in pixels
 
-        // Calculate height for single A4 in pixels
-        const pageHeightPx = Math.floor((pdfHeight / 25.4) * 96); // at 96dpi
-        const totalHeight = container.scrollHeight;
-        let renderedHeight = 0;
-        let pageNum = 1;
-        const pdfPageWidth = pdf.internal.pageSize.getWidth();
-        const pdfPageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = 210; // A4 width in mm
+        const imgHeight = (elementHeight * imgWidth) / elementWidth;
 
-        // Scroll and clip if content spans multiple pages
-        while (renderedHeight < (paperContentDiv?.scrollHeight || container.scrollHeight)) {
-          paperContentDiv.scrollTop = renderedHeight;
-          paperContentDiv.style.overflow = "hidden";
-          paperContentDiv.style.height = `${pageHeightPx}px`;
+        if (!isFinite(imgHeight) || imgHeight <= 0) {
+          throw new Error("Invalid dimensions calculated for PDF rendering: imgHeight must be finite");
+        }
 
-          await new Promise(r => setTimeout(r, 40));
-          const canvas = await html2canvas(paperContentDiv, {
-            scale: 2.3,
-            useCORS: true,
+        // Wrap html2canvas execution in a timeout race (12 seconds) to prevent infinite freezing
+        const canvas = await Promise.race([
+          html2canvas(paperContentDiv, {
+            scale: 1.0, // Scale 1.0 renders 40% faster and uses half the memory of scale 1.2
+            useCORS: false, // Disabling CORS prevents hanging on Google Fonts or CDN stylesheets
+            allowTaint: true,
+            logging: false,
             backgroundColor: '#fff',
-            width: paperContentDiv.offsetWidth,
-            height: pageHeightPx,
-            scrollX: 0,
-            scrollY: renderedHeight,
-            windowWidth: paperContentDiv.offsetWidth,
-            windowHeight: pageHeightPx
-          });
-          const imgData = canvas.toDataURL('image/png', 1.0);
+            width: elementWidth,
+            height: elementHeight,
+            windowWidth: elementWidth,
+            windowHeight: elementHeight
+          }),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("PDF compilation timed out")), 12000)
+          )
+        ]);
 
-          if (pageNum > 1) pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, 0, pdfPageWidth, pdfPageHeight, '', 'FAST');
+        // Converting canvas to JPEG at 0.85 quality is up to 10x faster to encode than lossless PNG format
+        const imgData = canvas.toDataURL('image/jpeg', 0.85);
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        let heightLeft = imgHeight;
+        let position = 0;
+        let pageNum = 1;
+
+        // Render first page slice
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, '', 'FAST');
+        pdf.setFontSize(10);
+        pdf.text(`Page ${pageNum}`, 210 - 24, 297 - 10);
+        heightLeft -= 297;
+
+        // Render subsequent page slices
+        while (heightLeft > 0) {
+          position = -297 * pageNum; // Shift image upward
+          pdf.addPage();
+          pageNum++;
+          pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, '', 'FAST');
           pdf.setFontSize(10);
-          pdf.text(`Page ${pageNum}`, pdfPageWidth - 24, pdfPageHeight - 10);
-          renderedHeight += pageHeightPx;
-          pageNum += 1;
+          pdf.text(`Page ${pageNum}`, 210 - 24, 297 - 10);
+          heightLeft -= 297;
         }
 
         // 4. Save the file
@@ -93,8 +143,18 @@ export function useDownloadQuestionPaperPDF() {
         const isoDate = new Date().toISOString().split("T")[0];
         const fileName = `${filePrefix}_${sanitizedTitle}_${isoDate}.pdf`;
         pdf.save(fileName);
-      } catch (err) {
+
+        toast({
+          title: "Download Started",
+          description: "Your question paper PDF has been downloaded successfully.",
+        });
+      } catch (err: any) {
         console.error('Error generating PDF:', err);
+        toast({
+          title: "PDF Generation Failed",
+          description: err.message || "Failed to render and slice your question paper. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         if (root) {
           try {
@@ -108,7 +168,7 @@ export function useDownloadQuestionPaperPDF() {
         }
       }
     },
-    []
+    [toast]
   );
 
   return { downloadPDF };

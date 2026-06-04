@@ -9,7 +9,7 @@ import { useToast } from '../hooks/use-toast';
 import AnswerTab from '../components/tabs/AnswerTab';
 import EvaluateTab from '../components/tabs/EvaluateTab';
 import ResourcesTab from '../components/tabs/ResourcesTab';
-import { generateQuestionPaper, generateSolutions, evaluateAnswers, getPapers } from '../services/apiService';
+import { generateQuestionPaper, generateSolutions, evaluateAnswers, getPapers, deletePaper } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Sparkles, 
@@ -31,7 +31,8 @@ import {
   Clock,
   Target,
   FileText,
-  ShieldAlert
+  ShieldAlert,
+  Trash2
 } from "lucide-react";
 
 const Index = () => {
@@ -147,6 +148,35 @@ const Index = () => {
     setSolutions(paper.solutions || '');
     setEvaluationResult((paper as any).evaluationResult || '');
     setActiveTab('answer');
+  };
+
+  const handleDeletePaper = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this question paper from your history?")) {
+      setLoading(true);
+      try {
+        await deletePaper(id);
+        setPaperHistory(prev => prev.filter(p => p.id !== id));
+        if (currentPaper?.id === id) {
+          setCurrentPaper(null);
+          setSolutions('');
+          setEvaluationResult('');
+        }
+        toast({
+          title: "Question Paper Deleted",
+          description: "Your paper has been removed successfully.",
+        });
+      } catch (error: any) {
+        console.error('Error deleting paper:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete paper. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const toggleFaq = (index: number) => {
@@ -561,7 +591,16 @@ const Index = () => {
                         Generated: {new Date(paper.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    <ArrowRight className="w-5 h-5 text-indigo-400 shrink-0" />
+                    <div className="flex items-center space-x-3 shrink-0">
+                      <button
+                        onClick={(e) => handleDeletePaper(e, paper.id)}
+                        className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500 hover:text-white text-red-400 transition-all"
+                        title="Delete Question Paper"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <ArrowRight className="w-5 h-5 text-indigo-400" />
+                    </div>
                   </div>
                 ))}
               </div>
