@@ -1,10 +1,10 @@
 services:
-  # MockVerse(AI) Full-Stack express & react service
+  # MockVerse(AI) Backend API service
   - type: web
-    name: mockverse-ai-platform
+    name: mockverse-ai-backend
     env: node
     plan: free
-    buildCommand: npm install && npm run build --prefix ../frontend
+    buildCommand: npm install
     startCommand: npm start
     rootDir: backend
     envVars:
@@ -20,3 +20,6 @@ services:
       - key: GEMINI_API_KEY
         sync: false
         placeholder: "Enter Google Gemini API Key"
+      - key: FRONTEND_URL
+        sync: false
+        placeholder: "https://your-frontend-app.vercel.app"

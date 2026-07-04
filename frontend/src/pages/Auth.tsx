@@ -155,7 +155,7 @@ const Auth = () => {
               Smart Study Ecosystem
             </h4>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Design tailored exams, generate fully worked solutions, and evaluate results instantly. Supported securely with relational MySQL database persistence.
+              Design tailored exams, generate fully worked solutions, and evaluate results instantly. Supported securely with MongoDB database persistence.
             </p>
             
             <div className="flex items-center space-x-2 mt-6">

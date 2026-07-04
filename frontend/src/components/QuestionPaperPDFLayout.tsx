@@ -13,6 +13,13 @@ export interface QuestionPaperPDFLayoutProps {
   board?: string;
 }
 
+// React context to track nested list parameters for layout rendering
+const ListContext = React.createContext<{ ordered: boolean; depth: number; startIndex: number }>({
+  ordered: false,
+  depth: 0,
+  startIndex: 1
+});
+
 const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
   content,
   title,
@@ -44,11 +51,12 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
     >
       {/* Header */}
       <div
+        className="pdf-header"
         style={{
-          border: "1.5px solid #222",
-          padding: "14px 10px",
+          border: "3px double #000",
+          padding: "16px 20px",
           width: "100%",
-          marginBottom: "13px",
+          marginBottom: "15px",
           background: "#fff",
           textAlign: "center",
           boxSizing: "border-box",
@@ -57,81 +65,139 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
       >
         <div
           style={{
-            fontWeight: 700,
-            fontSize: "19pt",
-            letterSpacing: "1px",
+            fontWeight: 800,
+            fontSize: "15pt",
+            letterSpacing: "2px",
             textTransform: "uppercase",
-            marginBottom: "8px"
+            marginBottom: "4px",
+            fontFamily: "'Times New Roman', Times, serif"
+          }}
+        >
+          {board ? `${board.toUpperCase()} EVALUATION` : "ACADEMIC EVALUATION"}
+        </div>
+        <div
+          style={{
+            fontWeight: 800,
+            fontSize: "18pt",
+            letterSpacing: "1.5px",
+            textTransform: "uppercase",
+            marginBottom: "15px",
+            fontFamily: "'Times New Roman', Times, serif",
+            borderBottom: "1px solid #333",
+            paddingBottom: "8px"
           }}
         >
           {type === "question" ? "QUESTION PAPER" : "SOLUTIONS KEY"}
         </div>
-        <div
+        
+        {/* Two-Column Metadata Table */}
+        <table
           style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            border: "none",
             fontSize: "11.5pt",
-            lineHeight: 1.5
+            fontFamily: "'Times New Roman', Times, serif",
+            color: "#000",
+            lineHeight: "1.6"
           }}
         >
-          SUBJECT: <b>{title}</b> &nbsp;&nbsp;|&nbsp;&nbsp;
-          CLASS: <b>{classVal ? (classVal.toLowerCase().includes('grade') || isNaN(Number(classVal)) ? classVal : `${classVal}th Grade`) : 'N/A'}</b> &nbsp;&nbsp;|&nbsp;&nbsp;
-          BOARD: <b>{board || 'N/A'}</b> &nbsp;&nbsp;|&nbsp;&nbsp;
-          MARKS: <b>{totalMarks}</b>
-        </div>
+          <tbody>
+            <tr>
+              <td style={{ border: "none", padding: "2px 0", textAlign: "left", width: "50%" }}>
+                SUBJECT: <strong>{title ? title.toUpperCase() : "N/A"}</strong>
+              </td>
+              <td style={{ border: "none", padding: "2px 0", textAlign: "right", width: "50%" }}>
+                MAXIMUM MARKS: <strong>{totalMarks}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ border: "none", padding: "2px 0", textAlign: "left" }}>
+                CLASS: <strong>{classVal ? (classVal.toLowerCase().includes('grade') || isNaN(Number(classVal)) ? classVal.toUpperCase() : `${classVal}TH GRADE`) : 'N/A'}</strong>
+              </td>
+              <td style={{ border: "none", padding: "2px 0", textAlign: "right" }}>
+                TIME ALLOWED: <strong>{totalMarks > 50 ? "3 HOURS" : "2 HOURS"}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ border: "none", padding: "2px 0", textAlign: "left" }}>
+                BOARD: <strong>{board ? board.toUpperCase() : "NCERT"}</strong>
+              </td>
+              <td style={{ border: "none", padding: "2px 0", textAlign: "right" }}>
+                DATE: <strong>{formattedDate}</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      {/* General Instructions box */}
+      {/* General Instructions Box */}
       {type === "question" && (
         <div
+          className="pdf-instructions"
           style={{
             border: "1.5px solid #000",
-            padding: "10px 18px 10px 20px",
-            marginBottom: "13px",
-            fontSize: "11.8pt",
+            padding: "12px 18px",
+            marginBottom: "15px",
+            fontSize: "11.5pt",
             background: "#fff",
-            fontFamily: "'Times New Roman', Times, serif"
+            fontFamily: "'Times New Roman', Times, serif",
+            boxSizing: "border-box"
           }}
         >
           <div
             style={{
-              fontWeight: "bolder",
-              fontSize: "13.5pt",
-              marginBottom: ".5em",
-              letterSpacing: "0.2px"
+              fontWeight: "bold",
+              fontSize: "12pt",
+              marginBottom: "8px",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px"
             }}
           >
-            GENERAL INSTRUCTIONS
+            GENERAL INSTRUCTIONS:
           </div>
-          <ul
+          <div
             style={{
-              margin: 0,
-              padding: "0 0 0 5px",
-              listStyleType: "square",
-              listStylePosition: "inside",
-              lineHeight: 1.7
+              display: "flex",
+              flexDirection: "column",
+              gap: "5px"
             }}
           >
-            <li style={{ marginBottom: "4px" }}>
-              Read all instructions carefully before attempting.
-            </li>
-            <li style={{ marginBottom: "4px" }}>
-              Attempt all questions unless instructed otherwise.
-            </li>
-            <li style={{ marginBottom: "4px" }}>
-              Write clearly. No extra sheets allowed unless asked.
-            </li>
-            <li style={{ marginBottom: "4px" }}>
-              Use only blue or black ink pen for writing answers.
-            </li>
-            <li style={{ marginBottom: "4px" }}>
-              Calculators/mobile phones are not permitted.
-            </li>
-            <li>All questions carry equal marks unless specified.</li>
-          </ul>
+            {[
+              "Read all instructions carefully before attempting the questions.",
+              "Attempt all questions. There is no negative marking.",
+              "Write your answers neatly and legibly. Extra sheets are not provided.",
+              "Use of calculators, mobile phones, or any electronic gadgets is strictly prohibited.",
+              "Verify that your question paper contains all questions and sections before starting."
+            ].map((instruction, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  lineHeight: "1.5"
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "18px",
+                    minWidth: "18px",
+                    textAlign: "left",
+                    userSelect: "none"
+                  }}
+                >
+                  •
+                </span>
+                <span style={{ flex: 1 }}>{instruction}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Question Content */}
-      <div>
+      <div className="pdf-markdown-container">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
@@ -196,46 +262,117 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
                 {...props}
               />
             ),
-            ol: ({node, ...props}) => (
-              <ol
-                style={{
-                  marginTop: "8px",
-                  marginBottom: "8px",
-                  paddingLeft: "5px",
-                  listStylePosition: "inside"
-                }}
-                {...props}
-              />
-            ),
-            ul: ({node, ...props}) => (
-              <ul
-                style={{
-                  paddingLeft: "5px",
-                  marginTop: "4px",
-                  marginBottom: "7px",
-                  listStylePosition: "inside"
-                }}
-                {...props}
-              />
-            ),
-            li: ({node, ...props}) => (
-              <li
-                style={{
-                  fontSize: "13pt",
-                  marginBottom: "12px",
-                  paddingBottom: "0px",
-                  color: "#000",
-                  background: "#fff",
-                  fontFamily: "'Times New Roman', Times, serif",
-                  textAlign: "left",
-                  lineHeight: 1.9,
-                  paddingLeft: "1.5px",
-                  position: "relative",
-                  border: "none"
-                }}
-                {...props}
-              />
-            ),
+            ol: ({node, ...props}) => {
+              const parentList = React.useContext(ListContext);
+              const startVal = props.start || 1;
+              return (
+                <ListContext.Provider value={{ ordered: true, depth: parentList.depth + 1, startIndex: startVal }}>
+                  <ol
+                    style={{
+                      marginTop: "6px",
+                      marginBottom: "6px",
+                      paddingLeft: "0px",
+                      listStyleType: "none"
+                    }}
+                    {...props}
+                  />
+                </ListContext.Provider>
+              );
+            },
+            ul: ({node, ...props}) => {
+              const parentList = React.useContext(ListContext);
+              return (
+                <ListContext.Provider value={{ ordered: false, depth: parentList.depth + 1, startIndex: 1 }}>
+                  <ul
+                    style={{
+                      paddingLeft: "0px",
+                      marginTop: "6px",
+                      marginBottom: "6px",
+                      listStyleType: "none"
+                    }}
+                    {...props}
+                  />
+                </ListContext.Provider>
+              );
+            },
+            li: ({node, index, ...props}: any) => {
+              const { ordered, depth, startIndex } = React.useContext(ListContext);
+              const idx = typeof index === 'number' ? index : 0;
+              
+              let marker: React.ReactNode = null;
+              if (ordered) {
+                const displayNum = startIndex + idx;
+                if (depth === 1) {
+                  marker = `${displayNum}.`;
+                } else if (depth === 2) {
+                  marker = `${String.fromCharCode(97 + (idx % 26))}.`;
+                } else {
+                  const roman = (num: number): string => {
+                    const lookup: [string, number][] = [
+                      ["x", 10], ["ix", 9], ["v", 5], ["iv", 4], ["i", 1]
+                    ];
+                    let res = "";
+                    let val = num;
+                    for (const [str, limit] of lookup) {
+                      while (val >= limit) {
+                        res += str;
+                        val -= limit;
+                      }
+                    }
+                    return res;
+                  };
+                  marker = `${roman(displayNum)}.`;
+                }
+              } else {
+                if (depth === 1) {
+                  marker = "•";
+                } else if (depth === 2) {
+                  marker = "◦";
+                } else {
+                  marker = "▪";
+                }
+              }
+
+              const markerWidth = depth === 1 ? "28px" : "22px";
+              
+              return (
+                <li
+                  style={{
+                    fontSize: "13pt",
+                    marginBottom: "10px",
+                    color: "#000",
+                    background: "#fff",
+                    fontFamily: "'Times New Roman', Times, serif",
+                    textAlign: "left",
+                    lineHeight: 1.8,
+                    listStyleType: "none",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    width: "100%",
+                    boxSizing: "border-box"
+                  }}
+                  {...props}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: markerWidth,
+                      minWidth: markerWidth,
+                      fontWeight: ordered && depth === 1 ? "bold" : "normal",
+                      paddingRight: "6px",
+                      textAlign: "left",
+                      boxSizing: "border-box",
+                      userSelect: "none"
+                    }}
+                  >
+                    {marker}
+                  </span>
+                  <div style={{ flex: 1, display: "block" }}>
+                    {props.children}
+                  </div>
+                </li>
+              );
+            },
             strong: ({ node, ...props }) => (
               <strong
                 style={{
@@ -312,3 +449,4 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
 };
 
 export default QuestionPaperPDFLayout;
+

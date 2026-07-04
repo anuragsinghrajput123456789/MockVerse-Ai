@@ -85,26 +85,26 @@
   }
 
   .glass-card-hover {
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .glass-card-hover:hover {
-    transform: translateY(-5px) scale(1.01);
+    transform: translateY(-6px) scale(1.015);
     background: rgba(20, 30, 55, 0.6);
     border-color: rgba(99, 102, 241, 0.25);
-    box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.15);
+    box-shadow: 0 20px 50px 0 rgba(99, 102, 241, 0.12), 0 0 30px rgba(99, 102, 241, 0.06);
   }
 
   .glass-input {
     background: rgba(8, 12, 24, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .glass-input:focus {
     background: rgba(10, 16, 32, 0.8);
     border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.15), 0 0 6px rgba(99, 102, 241, 0.3);
   }
 
   /* Shimmer / Glowing utilities */
@@ -120,7 +120,7 @@
     border-radius: inherit;
     z-index: -1;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .glow-border:hover::after {
@@ -149,61 +149,228 @@
   }
 }
 
-/* Animations & Keyframes */
+/* ═══════════════════════════════════════════════ */
+/*            ANIMATIONS & KEYFRAMES              */
+/* ═══════════════════════════════════════════════ */
+
+/* Smooth fade-in with upward drift */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade-in scale from center */
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Gentle floating */
 @keyframes float {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(2deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-6px) rotate(0.5deg); }
+  50% { transform: translateY(-10px) rotate(1.5deg); }
+  75% { transform: translateY(-4px) rotate(0.5deg); }
 }
 
 @keyframes float-reverse {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(8px) rotate(-2deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(4px) rotate(-0.5deg); }
+  50% { transform: translateY(8px) rotate(-1.5deg); }
+  75% { transform: translateY(3px) rotate(-0.5deg); }
 }
 
+/* Soft breathing glow */
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.03); }
 }
 
+/* Slow ambient mesh drift */
 @keyframes mesh-drift {
   0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
+  25% { transform: translate(15px, -30px) scale(1.05); }
+  50% { transform: translate(30px, -10px) scale(1.08); }
+  75% { transform: translate(-10px, 20px) scale(0.97); }
   100% { transform: translate(0, 0) scale(1); }
 }
 
+/* Slide in from right (mobile nav) */
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0.5; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Slide up entrance */
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Stagger fade-in children */
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmer effect for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Modal overlay fade */
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Modal panel entrance */
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Smooth pulse for alert icons */
+@keyframes alert-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.12); opacity: 0.85; }
+}
+
+/* Spinner rotation */
+@keyframes spin-smooth {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Animation Utility Classes ─── */
+
+.animate-fade-in {
+  animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-in-fast {
+  animation: fade-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-in-slow {
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .animate-float {
-  animation: float 6s ease-in-out infinite;
+  animation: float 7s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 .animate-float-reverse {
-  animation: float-reverse 7s ease-in-out infinite;
+  animation: float-reverse 8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 .animate-pulse-glow {
-  animation: pulse-glow 4s ease-in-out infinite;
+  animation: pulse-glow 4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 .animate-mesh-1 {
-  animation: mesh-drift 15s ease-in-out infinite alternate;
+  animation: mesh-drift 18s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  will-change: transform;
 }
 
 .animate-mesh-2 {
-  animation: mesh-drift 20s ease-in-out infinite alternate-reverse;
-}
-
-@keyframes slide-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  animation: mesh-drift 24s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate-reverse;
+  will-change: transform;
 }
 
 .animate-slide-in {
-  animation: slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Scrollbar Customization */
+.animate-slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+.animate-modal-overlay {
+  animation: modal-overlay-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-modal-panel {
+  animation: modal-panel-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-alert-pulse {
+  animation: alert-pulse 2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.animate-spin-smooth {
+  animation: spin-smooth 1s linear infinite;
+}
+
+/* ─── Stagger Children Animation ─── */
+.stagger-children > * {
+  animation: stagger-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+
+/* ─── Smooth Global Transitions ─── */
+button, a, input, select, textarea {
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* GPU acceleration for animated elements */
+.glass-card-hover,
+.animate-float,
+.animate-float-reverse,
+.animate-mesh-1,
+.animate-mesh-2 {
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* ═══════════════════════════════════════════════ */
+/*              SCROLLBAR CUSTOMIZATION            */
+/* ═══════════════════════════════════════════════ */
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -216,6 +383,7 @@
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
+  transition: background 0.3s;
 }
 
 ::-webkit-scrollbar-thumb:hover {

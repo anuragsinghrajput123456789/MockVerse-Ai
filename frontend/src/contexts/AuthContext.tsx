@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from '../hooks/use-toast';
 
 interface User {
   id: string;
   name?: string;
   email: string;
+  hasApiKey?: boolean;
 }
 
 interface AuthContextType {
@@ -19,6 +20,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Safe JSON parse for localStorage data
+const safeJsonParse = <T,>(value: string | null, fallback: T): T => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch (error) {
+    console.error('Failed to parse stored data, clearing corrupted value:', error);
+    return fallback;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -27,40 +39,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+  // Stable logout function (memoized to avoid dependency issues)
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('mockverse_token');
+    localStorage.removeItem('mockverse_user');
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out.",
+    });
+  }, [toast]);
+
+  // Listen for auth-expired events from apiService (auto-logout on 401)
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setToken(null);
+      setUser(null);
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired. Please log in again.",
+        variant: "destructive",
+      });
+    };
+
+    window.addEventListener('mockverse:auth-expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('mockverse:auth-expired', handleAuthExpired);
+    };
+  }, [toast]);
+
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('mockverse_token');
-      const storedUser = localStorage.getItem('mockverse_user');
+      const storedUser = safeJsonParse<User | null>(
+        localStorage.getItem('mockverse_user'),
+        null,
+      );
 
       if (storedToken && storedUser) {
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-        
-        // Optionally verify session validity against profile endpoint
+        setUser(storedUser);
+
+        // Verify session validity against profile endpoint
         try {
           const res = await fetch(`${API_URL}/auth/profile`, {
             headers: {
-              'Authorization': `Bearer ${storedToken}`
-            }
+              'Authorization': `Bearer ${storedToken}`,
+            },
           });
-          
+
           if (!res.ok) {
-            // Token expired or invalid
-            logout();
+            // Token expired or invalid — clear auth state
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem('mockverse_token');
+            localStorage.removeItem('mockverse_user');
           } else {
             const userData = await res.json();
-            setUser(userData);
-            localStorage.setItem('mockverse_user', JSON.stringify(userData));
+            const enrichedUser = { ...userData, hasApiKey: !!userData.hasApiKey };
+            setUser(enrichedUser);
+            localStorage.setItem('mockverse_user', JSON.stringify(enrichedUser));
           }
         } catch (error) {
           console.error('Failed to verify profile session:', error);
           // Keep offline state if server is momentarily down
+        }
+      } else {
+        // Clean up any partial state
+        if (storedToken || storedUser) {
+          localStorage.removeItem('mockverse_token');
+          localStorage.removeItem('mockverse_user');
         }
       }
       setLoading(false);
     };
 
     initializeAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -72,14 +128,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Unexpected server response. Please try again.');
+      }
 
       if (!res.ok) {
         throw new Error(data.message || 'Login failed');
       }
 
       setToken(data.token);
-      const userProfile = { id: data.id, name: data.name, email: data.email };
+      const userProfile = { id: data.id, name: data.name, email: data.email, hasApiKey: !!data.hasApiKey };
       setUser(userProfile);
 
       localStorage.setItem('mockverse_token', data.token);
@@ -112,14 +173,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ name, email, password }),
       });
 
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Unexpected server response. Please try again.');
+      }
 
       if (!res.ok) {
         throw new Error(data.message || 'Signup failed');
       }
 
       setToken(data.token);
-      const userProfile = { id: data.id, name: data.name, email: data.email };
+      const userProfile = { id: data.id, name: data.name, email: data.email, hasApiKey: !!data.hasApiKey };
       setUser(userProfile);
 
       localStorage.setItem('mockverse_token', data.token);
@@ -127,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       toast({
         title: "Account Created!",
-        description: `Welcome to MockVerse, ${data.name}!`,
+        description: `Welcome to MockVerse, ${data.name || data.email}!`,
       });
       return true;
     } catch (error: any) {
@@ -141,17 +207,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('mockverse_token');
-    localStorage.removeItem('mockverse_user');
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
   };
 
   return (

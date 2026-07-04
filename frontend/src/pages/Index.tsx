@@ -9,7 +9,7 @@ import { useToast } from '../hooks/use-toast';
 import AnswerTab from '../components/tabs/AnswerTab';
 import EvaluateTab from '../components/tabs/EvaluateTab';
 import ResourcesTab from '../components/tabs/ResourcesTab';
-import { generateQuestionPaper, generateSolutions, evaluateAnswers, getPapers, deletePaper } from '../services/apiService';
+import { generateQuestionPaper, generateSolutions, evaluateAnswers, getPapers, deletePaper, saveUserApiKey, getUserApiKey, deleteUserApiKey } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Sparkles, 
@@ -32,7 +32,13 @@ import {
   Target,
   FileText,
   ShieldAlert,
-  Trash2
+  Trash2,
+  Key,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Shield
 } from "lucide-react";
 
 const Index = () => {
@@ -45,10 +51,22 @@ const Index = () => {
   const [faqOpen, setFaqOpen] = useState<Record<number, boolean>>({});
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   
+  // API Key Management State
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeyMasked, setApiKeyMasked] = useState<string | null>(null);
+  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  
+  // Quota Alert Modal State
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
+  const [quotaModalMessage, setQuotaModalMessage] = useState('');
+  const [quotaModalKeyInput, setQuotaModalKeyInput] = useState('');
+  
   const { user, logout } = useAuth();
   const { toast } = useToast();
   
-  // Load paper history from backend MySQL on mount
+  // Load paper history from backend MongoDB on mount
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -60,9 +78,55 @@ const Index = () => {
     };
     if (user) {
       fetchHistory();
+      // Load API key status
+      getUserApiKey().then(data => {
+        setHasStoredApiKey(data.hasApiKey);
+        setApiKeyMasked(data.maskedKey);
+      }).catch(() => {});
     }
   }, [user]);
   
+  const handleQuotaError = (error: any) => {
+    if (error.errorCode === 'API_KEY_QUOTA_EXHAUSTED' || error.statusCode === 429) {
+      setQuotaModalMessage('Your API key has exceeded its usage limit. You can add a new API key below to continue generating, or wait for the quota to reset.');
+      setQuotaModalKeyInput('');
+      setShowQuotaModal(true);
+      return true;
+    }
+    if (error.errorCode === 'API_KEY_INVALID' || error.statusCode === 401) {
+      setQuotaModalMessage('The provided API key is invalid or expired. Please enter a valid Gemini API key below to continue.');
+      setQuotaModalKeyInput('');
+      setShowQuotaModal(true);
+      return true;
+    }
+    return false;
+  };
+
+  const handleQuotaModalSave = async () => {
+    if (!quotaModalKeyInput.trim()) return;
+    setApiKeyLoading(true);
+    try {
+      const result = await saveUserApiKey(quotaModalKeyInput.trim());
+      setHasStoredApiKey(true);
+      setApiKeyMasked(result.maskedKey);
+      setApiKeyInput('');
+      setQuotaModalKeyInput('');
+      setShowQuotaModal(false);
+      toast({
+        title: "🔑 API Key Updated!",
+        description: "Your new Gemini API key has been saved. You can now generate papers again.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save API key.",
+        variant: "destructive",
+      });
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
   const handleGeneratePaper = async (formData: PaperFormData) => {
     setLoading(true);
     try {
@@ -80,11 +144,13 @@ const Index = () => {
       });
     } catch (error: any) {
       console.error('Error generating paper:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate paper. Please try again.",
-        variant: "destructive",
-      });
+      if (!handleQuotaError(error)) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to generate paper. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -106,11 +172,13 @@ const Index = () => {
       });
     } catch (error: any) {
       console.error('Error generating solutions:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate solutions. Please try again.",
-        variant: "destructive",
-      });
+      if (!handleQuotaError(error)) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to generate solutions. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -133,13 +201,62 @@ const Index = () => {
       });
     } catch (error: any) {
       console.error('Error evaluating answers:', error);
+      if (!handleQuotaError(error)) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to evaluate answers. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // API Key Management Handlers
+  const handleSaveApiKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    setApiKeyLoading(true);
+    try {
+      const result = await saveUserApiKey(apiKeyInput.trim());
+      setHasStoredApiKey(true);
+      setApiKeyMasked(result.maskedKey);
+      setApiKeyInput('');
+      setShowApiKeyInput(false);
+      toast({
+        title: "🔑 API Key Saved!",
+        description: "Your Gemini API key has been encrypted and stored securely.",
+      });
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to evaluate answers. Please try again.",
+        description: error.message || "Failed to save API key.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setApiKeyLoading(false);
+    }
+  };
+
+  const handleDeleteApiKey = async () => {
+    setApiKeyLoading(true);
+    try {
+      await deleteUserApiKey();
+      setHasStoredApiKey(false);
+      setApiKeyMasked(null);
+      setApiKeyInput('');
+      toast({
+        title: "API Key Removed",
+        description: "Your stored API key has been deleted. The server default key will be used.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete API key.",
+        variant: "destructive",
+      });
+    } finally {
+      setApiKeyLoading(false);
     }
   };
 
@@ -216,7 +333,7 @@ const Index = () => {
     switch (activeTab) {
       case 'home':
         return (
-          <div className="space-y-20 animate-fade-in">
+          <div className="space-y-20 animate-fade-in stagger-children">
             {/* Hero Section */}
             <div className="relative rounded-3xl overflow-hidden glass-panel p-8 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10">
               {/* Decorative glows */}
@@ -282,7 +399,7 @@ const Index = () => {
               <h2 className="text-2xl md:text-3xl font-extrabold text-white text-center">
                 Launch Core Tools
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
                 {[
                   {
                     title: "Generate Paper",
@@ -363,7 +480,7 @@ const Index = () => {
                   </div>
                 </div>
 
-                <div className="lg:w-2/3 w-full grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="lg:w-2/3 w-full grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
                   {[
                     { label: "AI Evaluated Sheets", value: "984", trend: "+18%", color: "text-indigo-400" },
                     { label: "Generated Papers", value: "1,250", trend: "+24%", color: "text-pink-400" },
@@ -393,7 +510,7 @@ const Index = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-children">
                 {[
                   {
                     title: "AI Question Generation",
@@ -485,7 +602,7 @@ const Index = () => {
                   },
                   {
                     q: "Is there data persistence for my history?",
-                    a: "Yes. All generated exam structures, solutions, and evaluated scorecards are securely persistent inside our backend MySQL server for study retrospectives."
+                    a: "Yes. All generated exam structures, solutions, and evaluated scorecards are securely persistent inside our backend MongoDB database for study retrospectives."
                   }
                 ].map((faq, idx) => (
                   <div key={idx} className="glass-card rounded-xl border border-white/5 overflow-hidden transition-all duration-300">
@@ -623,7 +740,7 @@ const Index = () => {
         };
 
         return (
-          <div className="animate-fade-in max-w-4xl mx-auto space-y-8 pb-12">
+          <div className="animate-fade-in max-w-4xl mx-auto space-y-8 pb-12 stagger-children">
             {/* Header Identity Glass Panel */}
             <div className="glass-panel rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start justify-between gap-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -661,7 +778,7 @@ const Index = () => {
             </div>
 
             {/* Account Progress Dashboard */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
               <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between border-white/5 relative group hover:border-indigo-500/30 transition-all duration-300">
                 <span className="text-xs text-slate-400 font-semibold tracking-wide">Generated Papers</span>
                 <span className="text-3xl font-extrabold text-white mt-4">{totalPapers}</span>
@@ -690,6 +807,100 @@ const Index = () => {
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
+            </div>
+
+            {/* ═══ API Key Management Section ═══ */}
+            <div className="glass-panel rounded-3xl p-6 md:p-8 relative overflow-hidden border border-white/5">
+              <div className="absolute -top-16 -right-16 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex items-center space-x-2 border-b border-white/5 pb-4 mb-6">
+                <Key className="w-5 h-5 text-amber-400" />
+                <h3 className="font-extrabold text-white text-lg">Gemini API Key Management</h3>
+              </div>
+
+              {/* Status indicator */}
+              <div className={`flex items-center space-x-3 p-4 rounded-xl border mb-6 transition-all ${
+                hasStoredApiKey
+                  ? 'bg-emerald-500/5 border-emerald-500/20'
+                  : 'bg-slate-500/5 border-white/5'
+              }`}>
+                <Shield className={`w-5 h-5 shrink-0 ${hasStoredApiKey ? 'text-emerald-400' : 'text-slate-500'}`} />
+                <div className="flex-1">
+                  <h4 className={`text-sm font-bold ${hasStoredApiKey ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    {hasStoredApiKey ? 'Personal API Key Active' : 'Using Server Default Key'}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {hasStoredApiKey
+                      ? `Your encrypted key: ${apiKeyMasked || '••••••••'}`
+                      : 'Add your own Gemini API key for dedicated quota and limits.'}
+                  </p>
+                </div>
+                {hasStoredApiKey && (
+                  <button
+                    onClick={handleDeleteApiKey}
+                    disabled={apiKeyLoading}
+                    className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white text-[10px] font-bold rounded-lg transition-all disabled:opacity-50"
+                  >
+                    {apiKeyLoading ? 'Removing...' : 'Remove Key'}
+                  </button>
+                )}
+              </div>
+
+              {/* Add/Update API Key form */}
+              {!showApiKeyInput && !hasStoredApiKey && (
+                <button
+                  onClick={() => setShowApiKeyInput(true)}
+                  className="w-full py-3.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 font-bold text-sm rounded-xl transition-all duration-300 flex items-center justify-center space-x-2"
+                >
+                  <Key className="w-4 h-4" />
+                  <span>Add Your Gemini API Key</span>
+                </button>
+              )}
+
+              {(showApiKeyInput || hasStoredApiKey) && (
+                <div className="space-y-4 animate-fade-in">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-2">
+                      {hasStoredApiKey ? 'Update API Key' : 'Enter Gemini API Key'}
+                    </label>
+                    <div className="flex space-x-3">
+                      <input
+                        type="password"
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        placeholder={hasStoredApiKey ? 'Enter new key to update...' : 'AIzaSy...'}
+                        className="flex-1 h-11 px-4 rounded-xl border border-white/10 text-white placeholder-slate-500 bg-[#080C16] text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
+                      />
+                      <button
+                        onClick={handleSaveApiKey}
+                        disabled={apiKeyLoading || !apiKeyInput.trim()}
+                        className="px-6 h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20 flex items-center space-x-2"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        <span>{apiKeyLoading ? 'Saving...' : 'Save Key'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Help text */}
+                  <div className="flex items-start space-x-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                    <AlertTriangle className="w-4 h-4 text-amber-400/60 shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-slate-500 space-y-1">
+                      <p>Your key is <span className="text-amber-400/80 font-semibold">AES-256 encrypted</span> before storage. It's never exposed in plain text.</p>
+                      <p>Get a free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline inline-flex items-center space-x-1"><span>Google AI Studio</span><ExternalLink className="w-3 h-3" /></a></p>
+                    </div>
+                  </div>
+
+                  {!hasStoredApiKey && showApiKeyInput && (
+                    <button
+                      onClick={() => { setShowApiKeyInput(false); setApiKeyInput(''); }}
+                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Split layout for achievements and integrated settings */}
@@ -803,15 +1014,15 @@ const Index = () => {
           <main className="container mx-auto px-4 py-8 lg:px-8 relative z-10 flex-grow">
             <div className="max-w-6xl mx-auto">
               {loading && (
-                <div className="fixed inset-0 z-50 bg-[#0B0F19]/60 backdrop-blur-sm flex items-center justify-center">
-                  <div className="glass-card p-6 rounded-2xl border border-white/10 flex flex-col items-center space-y-4">
+                <div className="fixed inset-0 z-50 bg-[#0B0F19]/70 backdrop-blur-md flex items-center justify-center animate-modal-overlay">
+                  <div className="glass-card p-8 rounded-2xl border border-white/10 flex flex-col items-center space-y-5 animate-modal-panel shadow-2xl shadow-indigo-500/10">
                     <LoadingSpinner />
-                    <span className="text-sm font-semibold text-slate-300">Synchronizing AI Engine...</span>
+                    <span className="text-sm font-semibold text-slate-300 animate-pulse">Synchronizing AI Engine...</span>
                   </div>
                 </div>
               )}
               
-              <div className="transition-all duration-500">
+              <div key={activeTab} className="animate-fade-in" style={{ animationDuration: '0.4s' }}>
                 {renderContent()}
               </div>
             </div>
@@ -822,6 +1033,96 @@ const Index = () => {
         
         <Footer onTabChange={setActiveTab} />
       </div>
+
+      {/* ═══ API KEY QUOTA EXHAUSTED POP-UP MODAL ═══ */}
+      {showQuotaModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-modal-overlay" onClick={() => setShowQuotaModal(false)}>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          
+          {/* Modal Panel */}
+          <div
+            className="relative w-full max-w-lg glass-panel rounded-3xl border border-red-500/20 shadow-2xl shadow-red-500/10 overflow-hidden animate-modal-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Decorative glow */}
+            <div className="absolute -top-20 -right-20 w-60 h-60 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-amber-500/8 rounded-full blur-3xl pointer-events-none" />
+            
+            {/* Header */}
+            <div className="relative p-6 pb-4 border-b border-white/5">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/25 flex items-center justify-center animate-alert-pulse">
+                  <AlertTriangle className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-extrabold text-white">API Key Limit Reached</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Action required to continue</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Body */}
+            <div className="relative p-6 space-y-5">
+              <p className="text-sm text-slate-300 leading-relaxed">
+                {quotaModalMessage}
+              </p>
+              
+              {/* Quick API Key Input */}
+              <div className="space-y-3">
+                <label className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider block">
+                  Enter New Gemini API Key
+                </label>
+                <div className="flex space-x-3">
+                  <input
+                    type="password"
+                    value={quotaModalKeyInput}
+                    onChange={(e) => setQuotaModalKeyInput(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="flex-1 h-12 px-4 rounded-xl border border-white/10 text-white placeholder-slate-500 bg-[#080C16] text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                    autoFocus
+                    onKeyDown={(e) => e.key === 'Enter' && handleQuotaModalSave()}
+                  />
+                  <button
+                    onClick={handleQuotaModalSave}
+                    disabled={apiKeyLoading || !quotaModalKeyInput.trim()}
+                    className="px-6 h-12 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-sm rounded-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20 flex items-center space-x-2 hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>{apiKeyLoading ? 'Saving...' : 'Save & Continue'}</span>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Help links */}
+              <div className="flex items-start space-x-2 p-3.5 rounded-xl bg-white/[0.02] border border-white/5">
+                <Key className="w-4 h-4 text-amber-400/60 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-slate-500 space-y-1.5">
+                  <p>Your key is <span className="text-amber-400/80 font-semibold">AES-256 encrypted</span> before storage.</p>
+                  <p>Get a free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline inline-flex items-center space-x-1"><span>Google AI Studio</span><ExternalLink className="w-3 h-3" /></a></p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Footer Actions */}
+            <div className="relative p-6 pt-4 border-t border-white/5 flex items-center justify-between">
+              <button
+                onClick={() => setShowQuotaModal(false)}
+                className="px-5 py-2.5 text-sm font-semibold text-slate-400 hover:text-white rounded-xl hover:bg-white/5 transition-all"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { setShowQuotaModal(false); setActiveTab('profile'); }}
+                className="px-5 py-2.5 text-sm font-semibold text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl transition-all flex items-center space-x-2"
+              >
+                <SettingsIcon className="w-3.5 h-3.5" />
+                <span>Go to Profile Settings</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

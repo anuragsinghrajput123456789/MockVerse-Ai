@@ -3,7 +3,10 @@
 [![MERN Stack](https://img.shields.io/badge/Stack-MERN-indigo.svg?style=flat-square)](#)
 [![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg?style=flat-square)](#)
 [![AI Integration](https://img.shields.io/badge/AI-Google_Gemini-pink.svg?style=flat-square)](#)
+[![Project Deep Dive](https://img.shields.io/badge/Study_Guide-Project_Deep_Dive-amber.svg?style=flat-square)](docs/PROJECT_DEEP_DIVE.md)
 [![License](https://img.shields.io/badge/License-MIT-emerald.svg?style=flat-square)](#)
+
+> 💡 **Study Guide Available**: Read [docs/PROJECT_DEEP_DIVE.md](docs/PROJECT_DEEP_DIVE.md) for a complete 15-phase codebase breakdown and 30 mock interview questions covering system design, debugging, security, databases, React, and Node.js.
 
 **MockVerse(AI)** is a state-of-the-art, production-grade educational AI workspace that empowers students and educators to **generate high-fidelity question papers**, **solve exam sets in a dual-column workspace**, **explore worked solutions**, **evaluate answers with instant AI scorecards**, and **discuss concepts in real-time** with a context-grounded AI tutor.
 
@@ -70,7 +73,8 @@ MockVerse(Ai)
 │
 ├── docs/                     # Design Case Studies & API references
 │   ├── CASE_STUDY.md         # Professional 25-section software engineering breakdown
-│   └── API_FLOW.md           # API lifecycle charts
+│   ├── API_FLOW.md           # API lifecycle charts
+│   └── PROJECT_DEEP_DIVE.md  # 15-Phase Technical Interview & Codebase Breakdown
 ├── .gitignore                # Global version control ignores
 └── README.md                 # Complete full-stack guide & manuals (This File)
 ```

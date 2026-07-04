@@ -45,7 +45,7 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full glass-panel shadow-lg shadow-black/20">
+    <header className="sticky top-0 z-50 w-full glass-panel shadow-lg shadow-black/20" style={{ transition: 'box-shadow 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           {/* Logo Section */}
@@ -72,11 +72,12 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                 <button
                   key={item.id}
                   onClick={() => handleTabClick(item.id)}
-                  className={`relative flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+                  className={`relative flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-400 ${
                     isActive
-                      ? "text-white"
+                      ? "text-white bg-white/[0.04]"
                       : "text-slate-400 hover:text-white hover:bg-white/5"
                   }`}
+                  style={{ transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
                 >
                   <IconComponent className={`w-4 h-4 transition-transform duration-300 ${isActive ? "scale-110 text-indigo-400" : "group-hover:scale-110"}`} />
                   <span>{item.label}</span>
@@ -128,7 +129,7 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
           {/* Backdrop Mask - Prevents interaction with page content while menu is open */}
           <div 
             onClick={toggleMobileMenu}
-            className="lg:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300" 
+            className="lg:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm animate-modal-overlay" 
           />
           
           {/* Slide-out Side Drawer */}

@@ -12,7 +12,10 @@ export interface QuestionPaper {
   pattern: string;
   questions: string;
   solutions?: string;
+  evaluationResult?: string;
   createdAt: Date;
+  updatedAt?: Date;
+  userId?: string;
 }
 
 export interface Answer {
