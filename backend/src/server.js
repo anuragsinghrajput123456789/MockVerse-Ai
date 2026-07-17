@@ -1,15 +1,12 @@
+import 'dotenv/config'; // Load environment variables first (hoisted)
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
-
-// Load environment variables
-dotenv.config();
+import { generalLimiter, authLimiter, aiLimiter } from './middleware/rateLimit.js';
 
 // Connect Database
 import connectDB from './config/db.js';
@@ -66,34 +63,7 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-// ─── Rate Limiting ────────────────────────────────────────────────────────────
-
-// General API rate limit: 100 requests per 15 minutes per IP
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many requests from this IP, please try again after 15 minutes.' },
-});
-
-// Stricter rate limit for auth endpoints: 10 requests per 15 minutes per IP
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many authentication attempts, please try again after 15 minutes.' },
-});
-
-// AI generation endpoints: 20 requests per 15 minutes per IP (Gemini quota protection)
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many AI generation requests, please try again after 15 minutes.' },
-});
+// Rate limiting configuration is imported from middleware/rateLimit.js
 
 // ─── Health Check Endpoint ────────────────────────────────────────────────────
 
@@ -121,8 +91,7 @@ app.get('/api/health', (req, res) => {
 // Auth routes (with stricter rate limiting on login/signup)
 app.use('/api/auth', authLimiter, authRoutes);
 
-// Paper routes (with AI rate limiting for generation endpoints)
-app.post('/api/papers', aiLimiter); // AI generation — stricter limit (passes through to router)
+// Paper routes (AI endpoints are internally limited in paperRoutes.js)
 app.use('/api/papers', generalLimiter, paperRoutes);
 
 // Chat route (AI rate limiting)
@@ -176,10 +145,16 @@ app.use((err, req, res, next) => {
   }
 
   console.error('Unhandled error:', err.stack || err.message);
-  res.status(err.statusCode || 500).json({
-    message: process.env.NODE_ENV === 'production'
-      ? 'Something went wrong on the server.'
-      : (err.message || 'Something went wrong on the server.'),
+  
+  const statusCode = err.statusCode || 500;
+  
+  // Show actual error message if it's a client/AI-quota error (4xx) OR if not in production
+  const isClientError = statusCode >= 400 && statusCode < 500;
+  const showDetailedMessage = isClientError || process.env.NODE_ENV !== 'production';
+
+  res.status(statusCode).json({
+    message: showDetailedMessage ? err.message : 'Something went wrong on the server.',
+    errorCode: err.errorCode || null,
   });
 });
 

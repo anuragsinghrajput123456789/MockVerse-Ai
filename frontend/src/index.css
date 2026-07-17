@@ -49,6 +49,11 @@
     --foreground: 210 40% 98%;
   }
 
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 80px;
+  }
+
   * {
     @apply border-slate-800/60 selection:bg-indigo-500/30 selection:text-indigo-200;
   }
@@ -58,6 +63,9 @@
     font-family: var(--font-inter);
     color: #e2e8f0;
     overflow-x: hidden;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -70,16 +78,14 @@
 @layer utilities {
   /* Glassmorphism primitives */
   .glass-panel {
-    background: rgba(10, 15, 30, 0.5);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: rgba(10, 15, 30, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.07);
   }
 
   .glass-card {
-    background: rgba(15, 22, 42, 0.45);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(13, 19, 35, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.06);
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   }
@@ -153,11 +159,11 @@
 /*            ANIMATIONS & KEYFRAMES              */
 /* ═══════════════════════════════════════════════ */
 
-/* Smooth fade-in with upward drift */
+/* Smooth fade-in with upward drift (optimized) */
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -198,13 +204,15 @@
   50% { opacity: 0.8; transform: scale(1.03); }
 }
 
-/* Slow ambient mesh drift */
+/* Slow ambient mesh drift (optimized to opacity-only to prevent layout/repaint thrashing) */
 @keyframes mesh-drift {
-  0% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(15px, -30px) scale(1.05); }
-  50% { transform: translate(30px, -10px) scale(1.08); }
-  75% { transform: translate(-10px, 20px) scale(0.97); }
-  100% { transform: translate(0, 0) scale(1); }
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.25; }
+}
+
+@keyframes mesh-drift-pink {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.20; }
 }
 
 /* Slide in from right (mobile nav) */
@@ -219,11 +227,11 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
-/* Stagger fade-in children */
+/* Stagger fade-in children (optimized) */
 @keyframes stagger-in {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -298,13 +306,13 @@
 }
 
 .animate-mesh-1 {
-  animation: mesh-drift 18s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
-  will-change: transform;
+  animation: mesh-drift 18s ease-in-out infinite alternate;
+  will-change: opacity;
 }
 
 .animate-mesh-2 {
-  animation: mesh-drift 24s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate-reverse;
-  will-change: transform;
+  animation: mesh-drift-pink 24s ease-in-out infinite alternate-reverse;
+  will-change: opacity;
 }
 
 .animate-slide-in {
@@ -359,12 +367,17 @@ button, a, input, select, textarea {
 /* GPU acceleration for animated elements */
 .glass-card-hover,
 .animate-float,
-.animate-float-reverse,
-.animate-mesh-1,
-.animate-mesh-2 {
+.animate-float-reverse {
   will-change: transform;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+}
+
+.animate-mesh-1,
+.animate-mesh-2 {
+  will-change: opacity;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 /* ═══════════════════════════════════════════════ */

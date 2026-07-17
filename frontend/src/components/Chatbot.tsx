@@ -3,6 +3,8 @@ import { MessageCircle, Send, X, Minimize2, Cpu, User, Sparkles } from 'lucide-r
 import { Button } from './ui/button';
 import { sendChatMessage } from '../services/apiService';
 import { useToast } from '../hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
@@ -54,7 +56,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ paperId }) => {
     setIsLoading(true);
 
     try {
-      const response = await sendChatMessage(inputMessage, paperId);
+      const historyPayload = messages.map(msg => ({
+        text: msg.text,
+        isUser: msg.isUser
+      }));
+      const response = await sendChatMessage(inputMessage, paperId, historyPayload);
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -159,10 +165,26 @@ const Chatbot: React.FC<ChatbotProps> = ({ paperId }) => {
                     className={`max-w-[75%] rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-sm ${
                       isUser
                         ? 'bg-gradient-to-r from-indigo-500 to-pink-500 text-white rounded-tr-none font-medium'
-                        : 'bg-white/5 border border-white/5 text-slate-200 rounded-tl-none'
+                        : 'bg-white/5 border border-white/5 text-slate-200 rounded-tl-none prose prose-invert prose-xs'
                     }`}
                   >
-                    {message.text}
+                    {isUser ? (
+                      message.text
+                    ) : (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0 text-justify text-[11px] md:text-xs text-slate-200">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1 text-[11px] md:text-xs text-slate-200">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1 text-[11px] md:text-xs text-slate-200">{children}</ol>,
+                          li: ({ children }) => <li className="mb-0.5 text-slate-200 leading-normal">{children}</li>,
+                          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+                          code: ({ children }) => <code className="bg-white/10 px-1 py-0.5 rounded text-[10px] font-mono text-pink-400">{children}</code>
+                        }}
+                      >
+                        {message.text}
+                      </ReactMarkdown>
+                    )}
                   </div>
 
                   {isUser && (

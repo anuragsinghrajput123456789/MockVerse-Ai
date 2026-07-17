@@ -249,13 +249,17 @@ export const evaluateAnswers = async (paperId: string, answers: string[]): Promi
 };
 
 // Send chatbot message
-export const sendChatMessage = async (message: string, paperId?: string): Promise<string> => {
+export const sendChatMessage = async (
+  message: string,
+  paperId?: string,
+  history?: { text: string; isUser: boolean }[]
+): Promise<string> => {
   const res = await fetchWithRetry(
     `${API_BASE_URL}/chat`,
     {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ message, paperId }),
+      body: JSON.stringify({ message, paperId, history }),
     },
     AI_TIMEOUT,
     'Failed to send message to chatbot',

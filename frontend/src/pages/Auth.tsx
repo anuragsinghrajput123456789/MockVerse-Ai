@@ -4,7 +4,11 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 
-const Auth = () => {
+interface AuthProps {
+  isInline?: boolean;
+}
+
+const Auth: React.FC<AuthProps> = ({ isInline = false }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -34,13 +38,17 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center p-6 md:p-12 relative overflow-hidden font-sans">
+    <div className={isInline ? "w-full relative font-sans" : "min-h-screen bg-[#0b0f19] flex items-center justify-center p-6 md:p-12 relative overflow-hidden font-sans"}>
       {/* Background Neon Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-pink-500/10 rounded-full blur-[130px] pointer-events-none" />
+      {!isInline && (
+        <>
+          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[130px] pointer-events-none" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-pink-500/10 rounded-full blur-[130px] pointer-events-none" />
+        </>
+      )}
 
       {/* Main Split Grid Card */}
-      <div className="w-full max-w-5xl bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 relative z-10 min-h-[600px]">
+      <div className={isInline ? "w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 relative z-10 min-h-[500px]" : "w-full max-w-5xl bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 relative z-10 min-h-[600px]"}>
         
         {/* Left Side: Form Section */}
         <div className="p-8 md:p-12 flex flex-col justify-center border-b md:border-b-0 md:border-r border-white/10">

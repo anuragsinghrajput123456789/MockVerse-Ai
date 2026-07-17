@@ -27,12 +27,15 @@ This project is built using a modern **MongoDB, Express, React, and Node.js (MER
 
 *   **⚡ Two-Column Interactive Workspace**: Re-architected the exam workspace into a responsive side-by-side layout. Students read the scrollable question paper on the left while drafting answers in real-time on the right, eliminating vertical scroll fatigue.
 *   **🧩 Heuristic Question Parser**: Dynamically parses raw AI Markdown question papers using regular expressions, generating discrete answer fields pre-loaded with the exact question text.
-*   **🚀 10x Faster PDF Exporter**: Optimized A4 PDF compilation. By disabling cross-origin styles fetching (`useCORS: false`), utilizing browser hardware-accelerated JPEG encoders, and setting the viewport render scale to `1.0`, we reduced rendering time by **90%** and cut the output file size.
+*   **🚀 Production-Grade PDF Pagination Exporter**: Optimized A4 PDF compilation with a pagination slicing algorithm that handles tall elements without page overflows. Fixed mobile viewport clipping issues via fixed positioning (`left: -9999px`), synchronized image loading pre-captures, CORS support, and cross-platform serif font fallbacks (`Times New Roman, Times, Georgia, serif`).
 *   **🛡️ Fail-Safe Rendering Boundaries**: Wrapped async PDF compilations inside a 12-second `Promise.race` timeout and integrated 1-second MathJax typeset compilation races. If drawing ever hangs, the system automatically rejects, displays warning toasts, unmounts layout variables, and restores browser responsiveness.
+*   **⚡ 99% Entry Bundle Code-Splitting**: Code-split large dependencies (`jspdf`, `html2canvas`, `react-markdown`, `lucide-react`) and lazy-loaded the main workspace page. Reduced the initial JS entry script size from **1.5 MB to 16.57 kB** for instant startup speeds.
+*   **🔒 Hardened Security Auditing**: Implemented string-casting checks on request body parameters to immunize all Mongoose queries against MongoDB injection attacks. Protected shared syllabus imports and dynamic HTML file exports from XSS injections using `DOMPurify` filters.
+*   **💬 Context-Aware AI Chatbot with Memory**: A companion study bot that remembers the context of the active question paper and maintains multi-turn conversation history (last 10 messages) using structured backend prompts and ReactMarkdown responses.
+*   **🛡️ Resilience retry loops**: Configured 3x retry loops with exponential backoff on the backend to automatically recover from transient Gemini API rate limit (429) or 5xx server errors. Enforced JWT secret presence checks in production startup.
 *   **🏷️ Dynamic PDF Header Stamping**: Dynamically renders Class, Board, Marks, and Difficulty parameters in the print PDF layout header.
 *   **🛑 Strict Form Field Validation**: Form fields (Subject, Class, Board, Chapters, Total Marks) inside the Generate Panel feature visual highlights, red outline alerts, and validation toasts to prevent silent submit errors.
 *   **🔐 Advanced JWT Authentication**: Secure user registration (signup) and login. Passwords are encrypted on the server with `bcryptjs`. Session states are isolated per-user.
-*   **💬 Context-Aware AI Chatbot**: A companion study bot that remembers the context of the active question paper to explain terms, give conceptual hints, and encourage the student.
 *   **📚 CRUD Study Library**: Add study notes, textbooks, and tutorial resources. Modify details or purge records at any time.
 *   **🔗 Base64 Quick Sharing**: Click to copy an encrypted Base64 URL for any library item, allowing quick sharing. Visiting users receive an interactive import overlay popup.
 *   **📄 Clickable HTML Export**: Click the download action to compile your resource into a beautiful standalone single-file HTML sheet containing active clickable links.
@@ -48,7 +51,7 @@ MockVerse(Ai)
 │   ├── src/
 │   │   ├── config/           # Database connectivity (Mongoose)
 │   │   ├── controllers/      # Auth & AI Paper/Resource controllers
-│   │   ├── middleware/       # JWT route guard middleware
+│   │   ├── middleware/       # JWT auth, rate limiting, & route guards
 │   │   ├── models/           # Mongoose schemas (User, QuestionPaper)
 │   │   └── server.js         # Express listener & static file server
 │   ├── .env.example          # Sample environment templates
@@ -67,11 +70,12 @@ MockVerse(Ai)
 │   │   ├── pages/            # Auth login & Main dashboard page layouts
 │   │   └── services/         # apiService.ts client fetching layer
 │   ├── index.html            # Core entry layout HTML
-│   ├── vite.config.ts        # Vite config
+│   ├── vite.config.ts        # Vite config with code-splitting
 │   ├── tailwind.config.ts    # Custom dashboard color tokens (indigo/pink/slate)
 │   └── package.json          # Client dependencies & scripts
 │
 ├── docs/                     # Design Case Studies & API references
+│   ├── ARCHITECTURE.md       # System architecture & design specification
 │   ├── CASE_STUDY.md         # Professional 25-section software engineering breakdown
 │   ├── API_FLOW.md           # API lifecycle charts
 │   └── PROJECT_DEEP_DIVE.md  # 15-Phase Technical Interview & Codebase Breakdown
@@ -96,6 +100,9 @@ graph TD
 | **Auth** | `/api/auth/signup` | `POST` | Public | Register a new user account. Returns metadata and JWT. |
 | **Auth** | `/api/auth/login` | `POST` | Public | Login with credentials. Returns metadata and JWT. |
 | **Auth** | `/api/auth/profile` | `GET` | Private | Get details of the logged-in user profile. |
+| **Auth** | `/api/auth/api-key` | `PUT` | Private | Save a user's Gemini API key (encrypted with AES-256-CBC). |
+| **Auth** | `/api/auth/api-key` | `GET` | Private | Retrieve the user's masked API key. |
+| **Auth** | `/api/auth/api-key` | `DELETE` | Private | Remove the user's stored API key. |
 | **Papers** | `/api/papers` | `POST` | Private | Generate and save a new custom AI question paper. |
 | **Papers** | `/api/papers` | `GET` | Private | Fetch the authenticated user's complete paper history. |
 | **Papers** | `/api/papers/:id` | `GET` | Private | Fetch a detailed question paper by ID. |
@@ -103,6 +110,7 @@ graph TD
 | **Papers** | `/api/papers/:id/solutions` | `POST` | Private | Generate step-by-step worked solutions for a paper. |
 | **Papers** | `/api/papers/:id/evaluate` | `POST` | Private | Evaluate student answers and get itemized scorecards. |
 | **Chat** | `/api/chat` | `POST` | Private | Message the chatbot within the active paper context. |
+| **Health** | `/api/health` | `GET` | Public | Server health check with DB status, uptime, and environment. |
 
 ---
 
@@ -112,9 +120,17 @@ Create a `.env` file inside the `/backend` folder with the following variables:
 
 ```env
 PORT=5000
-MONGODB_URI="mongodb://127.0.0.1:27017/mockverse"
+NODE_ENV=production
+MONGODB_URI="mongodb+srv://<user>:<pass>@cluster.mongodb.net/mockverse"
 JWT_SECRET="your_secure_jwt_random_string_key"
 GEMINI_API_KEY="your_google_gemini_api_key"
+FRONTEND_URL="https://your-frontend-domain.vercel.app"
+```
+
+For the frontend, create a `.env` file in the `/frontend` folder:
+
+```env
+VITE_API_URL="https://your-backend-domain.onrender.com/api"
 ```
 
 ---
@@ -155,8 +171,21 @@ Open `http://localhost:8080` in your web browser.
 
 ## 🐳 Deployment Readiness & Production Build
 
-To support production deployments (e.g. Heroku, Render, AWS), the Express backend is configured to serve the static client assets collectively on a single port:
+### Vercel (Frontend)
+1. Connect the `frontend/` directory as the root in Vercel.
+2. Set the build command to `npm run build` and the output directory to `dist`.
+3. Add the environment variable `VITE_API_URL` pointing to your Render backend URL.
 
+### Render (Backend)
+1. Connect the `backend/` directory as the root.
+2. Set the build command to `npm install` and the start command to `node src/server.js`.
+3. Add the following environment variables: `MONGODB_URI`, `JWT_SECRET`, `GEMINI_API_KEY`, `FRONTEND_URL`, `NODE_ENV=production`.
+
+### MongoDB Atlas
+1. Create a cluster and add your Render backend IP to the Network Access list.
+2. Copy the connection string and paste it as the `MONGODB_URI` value.
+
+### Local Production Build
 1.  **Build the Frontend Assets**:
     ```bash
     cd frontend

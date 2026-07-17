@@ -19,4 +19,25 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800, // Suppress warnings for intentionally large lazy-loaded chunks (pdf-utils, vendor)
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('jspdf') || id.includes('html2canvas')) {
+              return 'pdf-utils';
+            }
+            if (id.includes('lucide-react')) {
+              return 'icons';
+            }
+            if (id.includes('react-markdown') || id.includes('remark-gfm') || id.includes('micromark') || id.includes('mdast')) {
+              return 'markdown-utils';
+            }
+            return 'vendor';
+          }
+        }
+      }
+    }
+  }
 }));

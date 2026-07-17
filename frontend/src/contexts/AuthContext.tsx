@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '../hooks/use-toast';
 
 interface User {
@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/auth/login`, {
@@ -162,9 +162,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, toast]);
 
-  const signup = async (name: string, email: string, password: string): Promise<boolean> => {
+  const signup = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/auth/signup`, {
@@ -207,20 +207,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, toast]);
+
+  const value = useMemo(() => ({
+    user,
+    token,
+    login,
+    signup,
+    logout,
+    loading,
+    isAuthenticated: !!token,
+  }), [user, token, login, signup, logout, loading]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        login,
-        signup,
-        logout,
-        loading,
-        isAuthenticated: !!token,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

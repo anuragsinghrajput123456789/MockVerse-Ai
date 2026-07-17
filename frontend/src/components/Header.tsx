@@ -100,13 +100,15 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                     ? "bg-indigo-500/20 border-indigo-500 text-white" 
                     : "bg-white/5 border-white/10 hover:border-indigo-500/30 hover:bg-white/10 text-slate-300 hover:text-white"
                 }`}
-                title="Profile & Settings"
+                title={user ? "Profile & Settings" : "Login / Sign Up"}
               >
                 <User className="w-4.5 h-4.5" />
-                {user && (
+                {user ? (
                   <span className="text-xs font-semibold pr-1 max-w-[80px] truncate">
                     {user.name || "Student"}
                   </span>
+                ) : (
+                  <span className="text-xs font-semibold pr-1">Login / Sign Up</span>
                 )}
               </button>
             </div>
@@ -177,19 +179,31 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                   }`}
                 >
                   <User className="w-3.5 h-3.5" />
-                  <span>Profile</span>
+                  <span>{user ? "Profile" : "Login"}</span>
                 </button>
-                <button
-                  onClick={() => {
-                    logout();
-                    setMobileMenuOpen(false);
-                  }}
-                  disabled={loading}
-                  className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-white transition-all disabled:opacity-50 text-xs font-semibold"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>{loading ? "Signing out..." : "Logout"}</span>
-                </button>
+                {user ? (
+                  <button
+                    onClick={() => {
+                      logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    disabled={loading}
+                    className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-white transition-all disabled:opacity-50 text-xs font-semibold"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{loading ? "Signing out..." : "Logout"}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      handleTabClick("profile");
+                    }}
+                    className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-white transition-all text-xs font-semibold"
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Register</span>
+                  </button>
+                )}
               </div>
             </div>
 

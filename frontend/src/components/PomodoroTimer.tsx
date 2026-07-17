@@ -12,21 +12,26 @@ const PomodoroTimer = () => {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        if (isActive && timeLeft > 0) {
+        if (isActive) {
             timerRef.current = setInterval(() => {
-                setTimeLeft(prevTime => prevTime - 1);
+                setTimeLeft(prevTime => {
+                    if (prevTime <= 1) {
+                        setIsActive(false);
+                        alert("Time's up!");
+                        return initialMinutes * 60;
+                    }
+                    return prevTime - 1;
+                });
             }, 1000);
-        } else if (timeLeft === 0 && isActive) {
-            setIsActive(false);
-            if(timerRef.current) clearInterval(timerRef.current);
-            alert("Time's up!");
-            setTimeLeft(initialMinutes * 60);
         }
 
         return () => {
-            if(timerRef.current) clearInterval(timerRef.current);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
         };
-    }, [isActive, timeLeft, initialMinutes]);
+    }, [isActive, initialMinutes]);
     
     const toggleTimer = () => {
         setIsActive(!isActive);

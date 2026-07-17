@@ -2,11 +2,13 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import { lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import LoadingSpinner from "./components/LoadingSpinner";
+
+// Lazy-load the main Index page to split it from the entry bundle
+const Index = lazy(() => import("./pages/Index"));
 
 const AppContent = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -20,7 +22,17 @@ const AppContent = () => {
     );
   }
 
-  return isAuthenticated ? <Index /> : <Auth />;
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+          <LoadingSpinner />
+        </div>
+      }
+    >
+      <Index />
+    </Suspense>
+  );
 };
 
 const App = () => (

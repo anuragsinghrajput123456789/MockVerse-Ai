@@ -20,6 +20,121 @@ const ListContext = React.createContext<{ ordered: boolean; depth: number; start
   startIndex: 1
 });
 
+const MarkdownOl: React.FC<any> = ({ node, ...props }) => {
+  const parentList = React.useContext(ListContext);
+  const startVal = props.start || 1;
+  return (
+    <ListContext.Provider value={{ ordered: true, depth: parentList.depth + 1, startIndex: startVal }}>
+      <ol
+        style={{
+          marginTop: "6px",
+          marginBottom: "6px",
+          paddingLeft: "0px",
+          listStyleType: "none"
+        }}
+        {...props}
+      />
+    </ListContext.Provider>
+  );
+};
+
+const MarkdownUl: React.FC<any> = ({ node, ...props }) => {
+  const parentList = React.useContext(ListContext);
+  return (
+    <ListContext.Provider value={{ ordered: false, depth: parentList.depth + 1, startIndex: 1 }}>
+      <ul
+        style={{
+          paddingLeft: "0px",
+          marginTop: "6px",
+          marginBottom: "6px",
+          listStyleType: "none"
+        }}
+        {...props}
+      />
+    </ListContext.Provider>
+  );
+};
+
+const MarkdownLi: React.FC<any> = ({ node, index, ...props }) => {
+  const { ordered, depth, startIndex } = React.useContext(ListContext);
+  const idx = typeof index === 'number' ? index : 0;
+  
+  let marker: React.ReactNode = null;
+  if (ordered) {
+    const displayNum = startIndex + idx;
+    if (depth === 1) {
+      marker = `${displayNum}.`;
+    } else if (depth === 2) {
+      marker = `${String.fromCharCode(97 + (idx % 26))}.`;
+    } else {
+      const roman = (num: number): string => {
+        const lookup: [string, number][] = [
+          ["x", 10], ["ix", 9], ["v", 5], ["iv", 4], ["i", 1]
+        ];
+        let res = "";
+        let val = num;
+        for (const [str, limit] of lookup) {
+          while (val >= limit) {
+            res += str;
+            val -= limit;
+          }
+        }
+        return res;
+      };
+      marker = `${roman(displayNum)}.`;
+    }
+  } else {
+    if (depth === 1) {
+      marker = "•";
+    } else if (depth === 2) {
+      marker = "◦";
+    } else {
+      marker = "▪";
+    }
+  }
+
+  const markerWidth = depth === 1 ? "28px" : "22px";
+  
+  return (
+    <li
+      style={{
+        fontSize: "13pt",
+        marginBottom: "10px",
+        color: "#000",
+        background: "#fff",
+        fontFamily: "Times New Roman, Times, Georgia, serif",
+        textAlign: "left",
+        lineHeight: 1.8,
+        listStyleType: "none",
+        display: "flex",
+        alignItems: "flex-start",
+        width: "100%",
+        boxSizing: "border-box"
+      }}
+      {...props}
+    >
+      <span
+        style={{
+          display: "inline-block",
+          width: markerWidth,
+          minWidth: markerWidth,
+          fontWeight: ordered && depth === 1 ? "bold" : "normal",
+          paddingRight: "6px",
+          textAlign: "left",
+          boxSizing: "border-box",
+          userSelect: "none"
+        }}
+      >
+        {marker}
+      </span>
+      <div style={{ flex: 1, display: "block" }}>
+        {props.children}
+      </div>
+    </li>
+  );
+};
+
+
 const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
   content,
   title,
@@ -40,7 +155,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
         minHeight: "297mm",
         margin: "0",
         background: "#fff",
-        fontFamily: "'Times New Roman', Times, serif",
+        fontFamily: "Times New Roman, Times, Georgia, serif",
         fontSize: "13pt",
         color: "#000",
         boxSizing: "border-box",
@@ -70,7 +185,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
             letterSpacing: "2px",
             textTransform: "uppercase",
             marginBottom: "4px",
-            fontFamily: "'Times New Roman', Times, serif"
+            fontFamily: "Times New Roman, Times, Georgia, serif"
           }}
         >
           {board ? `${board.toUpperCase()} EVALUATION` : "ACADEMIC EVALUATION"}
@@ -82,7 +197,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
             letterSpacing: "1.5px",
             textTransform: "uppercase",
             marginBottom: "15px",
-            fontFamily: "'Times New Roman', Times, serif",
+            fontFamily: "Times New Roman, Times, Georgia, serif",
             borderBottom: "1px solid #333",
             paddingBottom: "8px"
           }}
@@ -97,7 +212,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
             borderCollapse: "collapse",
             border: "none",
             fontSize: "11.5pt",
-            fontFamily: "'Times New Roman', Times, serif",
+            fontFamily: "Times New Roman, Times, Georgia, serif",
             color: "#000",
             lineHeight: "1.6"
           }}
@@ -141,7 +256,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
             marginBottom: "15px",
             fontSize: "11.5pt",
             background: "#fff",
-            fontFamily: "'Times New Roman', Times, serif",
+            fontFamily: "Times New Roman, Times, Georgia, serif",
             boxSizing: "border-box"
           }}
         >
@@ -204,7 +319,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
             h1: ({node, ...props}) => (
               <h1
                 style={{
-                  fontFamily: "'Times New Roman', Times, serif",
+                  fontFamily: "Times New Roman, Times, Georgia, serif",
                   fontWeight: "bold",
                   fontSize: "15.8pt",
                   letterSpacing: "0.4px",
@@ -262,117 +377,9 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
                 {...props}
               />
             ),
-            ol: ({node, ...props}) => {
-              const parentList = React.useContext(ListContext);
-              const startVal = props.start || 1;
-              return (
-                <ListContext.Provider value={{ ordered: true, depth: parentList.depth + 1, startIndex: startVal }}>
-                  <ol
-                    style={{
-                      marginTop: "6px",
-                      marginBottom: "6px",
-                      paddingLeft: "0px",
-                      listStyleType: "none"
-                    }}
-                    {...props}
-                  />
-                </ListContext.Provider>
-              );
-            },
-            ul: ({node, ...props}) => {
-              const parentList = React.useContext(ListContext);
-              return (
-                <ListContext.Provider value={{ ordered: false, depth: parentList.depth + 1, startIndex: 1 }}>
-                  <ul
-                    style={{
-                      paddingLeft: "0px",
-                      marginTop: "6px",
-                      marginBottom: "6px",
-                      listStyleType: "none"
-                    }}
-                    {...props}
-                  />
-                </ListContext.Provider>
-              );
-            },
-            li: ({node, index, ...props}: any) => {
-              const { ordered, depth, startIndex } = React.useContext(ListContext);
-              const idx = typeof index === 'number' ? index : 0;
-              
-              let marker: React.ReactNode = null;
-              if (ordered) {
-                const displayNum = startIndex + idx;
-                if (depth === 1) {
-                  marker = `${displayNum}.`;
-                } else if (depth === 2) {
-                  marker = `${String.fromCharCode(97 + (idx % 26))}.`;
-                } else {
-                  const roman = (num: number): string => {
-                    const lookup: [string, number][] = [
-                      ["x", 10], ["ix", 9], ["v", 5], ["iv", 4], ["i", 1]
-                    ];
-                    let res = "";
-                    let val = num;
-                    for (const [str, limit] of lookup) {
-                      while (val >= limit) {
-                        res += str;
-                        val -= limit;
-                      }
-                    }
-                    return res;
-                  };
-                  marker = `${roman(displayNum)}.`;
-                }
-              } else {
-                if (depth === 1) {
-                  marker = "•";
-                } else if (depth === 2) {
-                  marker = "◦";
-                } else {
-                  marker = "▪";
-                }
-              }
-
-              const markerWidth = depth === 1 ? "28px" : "22px";
-              
-              return (
-                <li
-                  style={{
-                    fontSize: "13pt",
-                    marginBottom: "10px",
-                    color: "#000",
-                    background: "#fff",
-                    fontFamily: "'Times New Roman', Times, serif",
-                    textAlign: "left",
-                    lineHeight: 1.8,
-                    listStyleType: "none",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    width: "100%",
-                    boxSizing: "border-box"
-                  }}
-                  {...props}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: markerWidth,
-                      minWidth: markerWidth,
-                      fontWeight: ordered && depth === 1 ? "bold" : "normal",
-                      paddingRight: "6px",
-                      textAlign: "left",
-                      boxSizing: "border-box",
-                      userSelect: "none"
-                    }}
-                  >
-                    {marker}
-                  </span>
-                  <div style={{ flex: 1, display: "block" }}>
-                    {props.children}
-                  </div>
-                </li>
-              );
-            },
+            ol: MarkdownOl,
+            ul: MarkdownUl,
+            li: MarkdownLi,
             strong: ({ node, ...props }) => (
               <strong
                 style={{
@@ -402,7 +409,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
                 style={{
                   border: "1px solid #222",
                   padding: "4px 7px",
-                  fontFamily: "'Times New Roman',Times,serif",
+                  fontFamily: "Times New Roman, Times, Georgia, serif",
                   fontSize: "12pt",
                   color: "#000"
                 }}
@@ -414,7 +421,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
                 style={{
                   border: "1px solid #222",
                   padding: "4px 7px",
-                  fontFamily: "'Times New Roman',Times,serif",
+                  fontFamily: "Times New Roman, Times, Georgia, serif",
                   fontSize: "12pt",
                   color: "#000"
                 }}
@@ -438,7 +445,7 @@ const QuestionPaperPDFLayout: React.FC<QuestionPaperPDFLayoutProps> = ({
           fontSize: "11pt",
           color: "#222",
           background: "#fff",
-          fontFamily: "'Times New Roman', Times, serif",
+          fontFamily: "Times New Roman, Times, Georgia, serif",
           fontWeight: "normal"
         }}
       >

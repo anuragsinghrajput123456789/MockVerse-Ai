@@ -3,10 +3,14 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mockverse_secret_jwt_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('FATAL: JWT_SECRET environment variable is not defined in production mode!');
+}
+const finalJwtSecret = JWT_SECRET || 'mockverse_secret_jwt_key_2026';
 
 // AES-256-CBC encryption for API keys
-const ENCRYPTION_KEY = crypto.createHash('sha256').update(process.env.JWT_SECRET || 'mockverse_secret_jwt_key_2026').digest();
+const ENCRYPTION_KEY = crypto.createHash('sha256').update(finalJwtSecret).digest();
 const IV_LENGTH = 16;
 
 const encryptApiKey = (text) => {
@@ -22,18 +26,29 @@ const encryptApiKey = (text) => {
   }
 };
 
+const decryptWithKey = (text, key) => {
+  const parts = text.split(':');
+  const iv = Buffer.from(parts.shift(), 'hex');
+  const encryptedText = parts.join(':');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+};
+
 const decryptApiKey = (text) => {
   try {
-    const parts = text.split(':');
-    const iv = Buffer.from(parts.shift(), 'hex');
-    const encryptedText = parts.join(':');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
+    // Attempt with current ENCRYPTION_KEY (derived from process.env.JWT_SECRET)
+    return decryptWithKey(text, ENCRYPTION_KEY);
   } catch (error) {
-    console.error('Decryption error:', error);
-    throw new Error('Failed to decrypt API key');
+    try {
+      // Fallback to legacy default key in case key was encrypted during legacy phase
+      const fallbackKey = crypto.createHash('sha256').update('mockverse_secret_jwt_key_2026').digest();
+      return decryptWithKey(text, fallbackKey);
+    } catch (fallbackError) {
+      console.error('Decryption error:', fallbackError);
+      throw new Error('Failed to decrypt API key');
+    }
   }
 };
 
@@ -59,7 +74,7 @@ const validatePassword = (password) => {
 
 // Generate JWT token
 const generateToken = (id) => {
-  return jwt.sign({ id }, JWT_SECRET, {
+  return jwt.sign({ id }, finalJwtSecret, {
     expiresIn: '30d',
   });
 };
@@ -69,25 +84,27 @@ const generateToken = (id) => {
 // @access  Public
 export const signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const nameStr = req.body.name ? String(req.body.name) : '';
+    const emailStr = req.body.email ? String(req.body.email) : '';
+    const passwordStr = req.body.password ? String(req.body.password) : '';
 
-    if (!email || !password) {
+    if (!emailStr || !passwordStr) {
       return res.status(400).json({ message: 'Please provide an email and password.' });
     }
 
-    const sanitizedEmail = email.trim().toLowerCase();
+    const sanitizedEmail = emailStr.trim().toLowerCase();
 
     if (!validateEmail(sanitizedEmail)) {
       return res.status(400).json({ message: 'Please provide a valid email address.' });
     }
 
-    if (!validatePassword(password)) {
+    if (!validatePassword(passwordStr)) {
       return res.status(400).json({
         message: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`,
       });
     }
 
-    const sanitizedName = name ? String(name).trim().substring(0, 100) : '';
+    const sanitizedName = nameStr.trim().substring(0, 100);
 
     // Check if user already exists
     const userExists = await User.findOne({ email: sanitizedEmail });
@@ -98,7 +115,7 @@ export const signup = async (req, res) => {
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(passwordStr, salt);
 
     // Create user
     const user = await User.create({
@@ -141,13 +158,14 @@ export const signup = async (req, res) => {
 // @access  Public
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const emailStr = req.body.email ? String(req.body.email) : '';
+    const passwordStr = req.body.password ? String(req.body.password) : '';
 
-    if (!email || !password) {
+    if (!emailStr || !passwordStr) {
       return res.status(400).json({ message: 'Please provide email and password.' });
     }
 
-    const sanitizedEmail = email.trim().toLowerCase();
+    const sanitizedEmail = emailStr.trim().toLowerCase();
 
     if (!validateEmail(sanitizedEmail)) {
       return res.status(400).json({ message: 'Please provide a valid email address.' });
@@ -157,7 +175,7 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email: sanitizedEmail });
 
     // Check if user exists and password matches
-    if (user && (await bcrypt.compare(password, user.password))) {
+    if (user && (await bcrypt.compare(passwordStr, user.password))) {
       res.json({
         id: user._id.toString(),
         name: user.name,
@@ -201,13 +219,13 @@ export const getProfile = async (req, res) => {
 // @access  Private
 export const saveApiKey = async (req, res) => {
   try {
-    const { apiKey } = req.body;
+    const apiKeyStr = req.body.apiKey ? String(req.body.apiKey) : '';
 
-    if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+    if (!apiKeyStr.trim()) {
       return res.status(400).json({ message: 'API key is required.' });
     }
 
-    const trimmedKey = apiKey.trim();
+    const trimmedKey = apiKeyStr.trim();
 
     if (trimmedKey.length > 256) {
       return res.status(400).json({ message: 'API key is too long.' });

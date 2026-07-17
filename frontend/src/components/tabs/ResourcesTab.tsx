@@ -5,6 +5,7 @@ import ResourceList from '../ResourceList';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useToast } from '../../hooks/use-toast';
 import { Share2, BookMarked, Download, Sparkles, X, Link } from "lucide-react";
+import DOMPurify from 'dompurify';
 
 const ResourcesTab: React.FC = () => {
   const [resources, setResources] = useLocalStorage<Resource[]>('resources', []);
@@ -24,11 +25,21 @@ const ResourcesTab: React.FC = () => {
         const parsedResource = JSON.parse(decodedString);
         
         if (parsedResource && parsedResource.title && parsedResource.link) {
+          const cleanTitle = DOMPurify.sanitize(parsedResource.title);
+          const cleanDesc = DOMPurify.sanitize(parsedResource.description || '');
+          let cleanLink = DOMPurify.sanitize(parsedResource.link);
+          
+          // Enforce HTTP/HTTPS scheme check to prevent javascript: or data: XSS schemes
+          const isHttpScheme = cleanLink.startsWith('http://') || cleanLink.startsWith('https://');
+          if (!isHttpScheme) {
+            cleanLink = 'https://' + cleanLink;
+          }
+
           setSharedImport({
-            title: parsedResource.title,
+            title: cleanTitle,
             type: parsedResource.type || 'Course',
-            link: parsedResource.link,
-            description: parsedResource.description || ''
+            link: cleanLink,
+            description: cleanDesc,
           });
         }
       } catch (error) {
@@ -118,12 +129,22 @@ const ResourcesTab: React.FC = () => {
   // Stand-alone HTML File Generator with clickable links
   const handleExportResource = (resource: Resource) => {
     try {
+      const cleanTitle = DOMPurify.sanitize(resource.title);
+      const cleanDesc = DOMPurify.sanitize(resource.description || '');
+      let cleanLink = DOMPurify.sanitize(resource.link);
+      
+      // Enforce HTTP/HTTPS scheme check to prevent javascript: or data: XSS schemes
+      const isHttpScheme = cleanLink.startsWith('http://') || cleanLink.startsWith('https://');
+      if (!isHttpScheme) {
+        cleanLink = '#';
+      }
+
       const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MockVerse Shared Resource: ${resource.title}</title>
+  <title>MockVerse Shared Resource: ${cleanTitle}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -135,24 +156,24 @@ const ResourcesTab: React.FC = () => {
   <!-- Glowing vector overlays -->
   <div class="absolute top-0 left-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
   <div class="absolute bottom-0 right-0 w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-
+ 
   <div class="glass-card max-w-lg w-full p-8 rounded-3xl text-center space-y-6 relative z-10">
     <div class="w-14 h-14 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl font-extrabold mx-auto shadow-lg shadow-indigo-500/20">
       MV
     </div>
-
+ 
     <div class="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
       <span>Shared ${resource.type} Material</span>
     </div>
-
-    <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight font-['Sora']">${resource.title}</h1>
-
-    ${resource.description ? `<p class="text-slate-400 text-sm leading-relaxed">${resource.description}</p>` : ''}
-
+ 
+    <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight font-['Sora']">${cleanTitle}</h1>
+ 
+    ${cleanDesc ? `<p class="text-slate-400 text-sm leading-relaxed">${cleanDesc}</p>` : ''}
+ 
     <div class="pt-4 flex flex-col gap-3">
       <!-- Clickable link to syllabus source -->
       <a 
-        href="${resource.link}" 
+        href="${cleanLink}" 
         target="_blank" 
         rel="noopener noreferrer" 
         class="w-full py-4 px-6 bg-gradient-to-r from-indigo-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] text-sm block"

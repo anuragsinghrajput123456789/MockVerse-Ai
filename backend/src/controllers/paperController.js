@@ -3,6 +3,19 @@ import User from '../models/User.js';
 import { decryptApiKey } from './authController.js';
 import mongoose from 'mongoose';
 
+// Helper to find a paper for a given request (scoped to user or guest)
+const findPaperForRequest = async (paperId, req) => {
+  const query = { _id: paperId };
+  if (req.user?.id) {
+    // Authenticated users can access their own papers or public guest papers
+    query.$or = [{ userId: req.user.id }, { userId: null }];
+  } else {
+    // Guests can only access guest papers
+    query.userId = null;
+  }
+  return await QuestionPaper.findOne(query);
+};
+
 // Use stable model name instead of 'gemini-flash-latest' which may break
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -40,128 +53,244 @@ const resolveApiKey = async (req) => {
   return { key: null, source: null };
 };
 
-// Helper to call Gemini API with rate limit detection and timeout
+// Helper to call Gemini API with rate limit detection, timeout, safety settings, and exponential backoff retry loop
 const callGemini = async (prompt, apiKey) => {
   if (!apiKey) {
     throw new Error('Gemini API key is not configured on server and no custom key provided.');
   }
+
+  const cleanApiKey = apiKey.trim();
 
   // Enforce a max prompt length to prevent abuse (100K chars ~ many pages of text)
   if (prompt.length > 100000) {
     throw new Error('Prompt is too long. Please reduce the input size.');
   }
 
-  let response;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  const maxAttempts = 3;
+  let attempt = 0;
+  let lastError;
 
-    response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt,
-          }],
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192,
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+
+      const response = await fetch(`${GEMINI_API_URL}?key=${cleanApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-      signal: controller.signal,
-    });
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt,
+            }],
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 8192,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
+        }),
+        signal: controller.signal,
+      });
 
-    clearTimeout(timeoutId);
-  } catch (fetchError) {
-    if (fetchError.name === 'AbortError') {
-      throw new Error('Gemini API request timed out. Please try again.');
+      clearTimeout(timeoutId);
+
+      // Detect rate limit / quota exhaustion
+      if (response.status === 429) {
+        const errorBody = await response.text().catch(() => '');
+        const error = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
+        error.statusCode = 429;
+        error.errorCode = 'API_KEY_QUOTA_EXHAUSTED';
+        throw error;
+      }
+
+      // Handle invalid/revoked API key authentication failure
+      if (response.status === 401) {
+        const errorBody = await response.text().catch(() => '');
+        const error = new Error('API_KEY_INVALID: The provided Gemini API key is invalid or has been revoked. Please check and update your API key in the Profile settings.');
+        error.statusCode = 400; // Use 400 instead of 401 to prevent frontend JWT auto-logout
+        error.errorCode = 'API_KEY_INVALID';
+        throw error;
+      }
+
+      if (response.status === 403) {
+        const errorBody = await response.text().catch(() => '');
+        if (errorBody.includes('RESOURCE_EXHAUSTED') || errorBody.includes('quota') || errorBody.includes('rate limit')) {
+          const error = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key quota has been exhausted. Please upgrade your plan in Google AI Studio or wait for the quota to reset.');
+          error.statusCode = 429;
+          error.errorCode = 'API_KEY_QUOTA_EXHAUSTED';
+          throw error;
+        }
+        if (errorBody.includes('API_KEY_INVALID') || errorBody.includes('invalid') || errorBody.includes('UNAUTHENTICATED')) {
+          const error = new Error('API_KEY_INVALID: The provided API key is invalid. Please check your API key in your profile settings.');
+          error.statusCode = 400; // Use 400 instead of 401 to prevent frontend JWT auto-logout
+          error.errorCode = 'API_KEY_INVALID';
+          throw error;
+        }
+        throw new Error(`Gemini API forbidden (403): ${errorBody}`);
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        // Check response body for quota-related errors even on other status codes
+        if (errorText.includes('RESOURCE_EXHAUSTED') || errorText.includes('quota')) {
+          const error = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
+          error.statusCode = 429;
+          error.errorCode = 'API_KEY_QUOTA_EXHAUSTED';
+          throw error;
+        }
+        if (errorText.includes('API_KEY_INVALID') || errorText.includes('invalid') || errorText.includes('UNAUTHENTICATED')) {
+          const error = new Error('API_KEY_INVALID: The provided Gemini API key is invalid or has been revoked. Please check and update your API key in the Profile settings.');
+          error.statusCode = 400; // Use 400 instead of 401 to prevent frontend JWT auto-logout
+          error.errorCode = 'API_KEY_INVALID';
+          throw error;
+        }
+        
+        // Wrap 5xx server errors for retry triggers
+        if (response.status >= 500) {
+          const error = new Error(`Server error (${response.status}): ${errorText}`);
+          error.isRetriable = true;
+          throw error;
+        }
+        throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        throw new Error('Failed to parse Gemini API response.');
+      }
+
+      if (!data.candidates || !data.candidates[0]) {
+        throw new Error('Invalid response from Gemini API — no candidates returned.');
+      }
+
+      const candidate = data.candidates[0];
+      if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
+        if (candidate.finishReason === 'SAFETY') {
+          throw new Error('Content generation was blocked by AI safety settings. Please try adjusting your parameters.');
+        } else if (candidate.finishReason === 'RECITATION') {
+          throw new Error('Content generation was blocked due to a citation/recitation check. Please try a different prompt.');
+        } else {
+          throw new Error(`Content generation failed: ${candidate.finishReason}`);
+        }
+      }
+
+      if (!candidate.content) {
+        throw new Error('No content returned from Gemini API candidates.');
+      }
+
+      const parts = candidate.content.parts;
+      if (!parts || parts.length === 0) {
+        throw new Error('No content parts returned from Gemini API.');
+      }
+
+      // Filter out thinking/reasoning parts (where part.thought === true) and join the text contents
+      const textContent = parts
+        .filter(part => !part.thought)
+        .map(part => part.text || '')
+        .join('')
+        .trim();
+
+      if (!textContent) {
+        throw new Error('No text content returned after filtering thoughts.');
+      }
+
+      // Clean up response: Strip surrounding markdown code block wrapper backticks if Gemini wrapped it in ```markdown / ```
+      let cleanText = textContent;
+      if (cleanText.startsWith('```')) {
+        const lines = cleanText.split('\n');
+        if (lines[0].startsWith('```')) {
+          lines.shift();
+        }
+        if (lines[lines.length - 1].startsWith('```')) {
+          lines.pop();
+        }
+        cleanText = lines.join('\n').trim();
+      }
+
+      return cleanText;
+
+    } catch (error) {
+      lastError = error;
+
+      if (error.name === 'AbortError') {
+        lastError = new Error('Gemini API request timed out. Please try again.');
+        lastError.isRetriable = true;
+      }
+
+      // Determine if error is non-retriable (API key invalidity or Safety block overrides)
+      const isInvalidKey = error.errorCode === 'API_KEY_INVALID' || error.statusCode === 400;
+      const isSafety = error.message.includes('safety') || error.message.includes('blocked');
+
+      if (isInvalidKey || isSafety) {
+        throw error;
+      }
+
+      // Stop retry checks once max limit exceeded
+      if (attempt >= maxAttempts) {
+        break;
+      }
+
+      // Wait with exponential backoff delay (1.5s, 3s)
+      const delay = Math.pow(1.5, attempt) * 1000;
+      console.warn(`Gemini API call failed (Attempt ${attempt}/${maxAttempts}). Retrying in ${delay}ms... Error: ${lastError.message}`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-    throw new Error(`Failed to reach Gemini API: ${fetchError.message}`);
   }
 
-  // Detect rate limit / quota exhaustion
-  if (response.status === 429) {
-    const errorBody = await response.text().catch(() => '');
-    const error = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
-    error.statusCode = 429;
-    throw error;
+  throw lastError;
+};
+
+// Helper to call Gemini API with fallback retry and secondary API key attempts
+const callGeminiWithFallback = async (prompt, req) => {
+  const { key, source } = await resolveApiKey(req);
+  
+  if (!key) {
+    throw new Error('Gemini API key is not configured on server and no custom key provided.');
   }
 
-  if (response.status === 403) {
-    const errorBody = await response.text().catch(() => '');
-    if (errorBody.includes('RESOURCE_EXHAUSTED') || errorBody.includes('quota') || errorBody.includes('rate limit')) {
-      const error = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key quota has been exhausted. Please upgrade your plan in Google AI Studio or wait for the quota to reset.');
-      error.statusCode = 429;
-      throw error;
-    }
-    if (errorBody.includes('API_KEY_INVALID') || errorBody.includes('invalid')) {
-      const error = new Error('API_KEY_INVALID: The provided API key is invalid. Please check your API key in your profile settings.');
-      error.statusCode = 401;
-      throw error;
-    }
-    throw new Error(`Gemini API forbidden (403): ${errorBody}`);
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    // Check response body for quota-related errors even on other status codes
-    if (errorText.includes('RESOURCE_EXHAUSTED') || errorText.includes('quota')) {
-      const error = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
-      error.statusCode = 429;
-      throw error;
-    }
-    throw new Error(`Gemini API error (${response.status}): ${errorText}`);
-  }
-
-  let data;
   try {
-    data = await response.json();
-  } catch (jsonError) {
-    throw new Error('Failed to parse Gemini API response.');
-  }
-
-  if (!data.candidates || !data.candidates[0]) {
-    throw new Error('Invalid response from Gemini API — no candidates returned.');
-  }
-
-  const candidate = data.candidates[0];
-  if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
-    if (candidate.finishReason === 'SAFETY') {
-      throw new Error('Content generation was blocked by AI safety settings. Please try adjusting your parameters.');
-    } else if (candidate.finishReason === 'RECITATION') {
-      throw new Error('Content generation was blocked due to a citation/recitation check. Please try a different prompt.');
-    } else {
-      throw new Error(`Content generation failed: ${candidate.finishReason}`);
+    return await callGemini(prompt, key);
+  } catch (firstError) {
+    // Fall back to server key if:
+    // 1. The primary key was a custom key (either stored or from headers)
+    // 2. We have a server-level default API key configured
+    // 3. The server fallback key is different from the failed key
+    if (source !== 'server' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== key.trim()) {
+      console.warn(`Primary key (${source}) failed: ${firstError.message}. Trying server default fallback key...`);
+      try {
+        return await callGemini(prompt, process.env.GEMINI_API_KEY);
+      } catch (fallbackError) {
+        console.error('Server default fallback key also failed:', fallbackError.message);
+        throw fallbackError;
+      }
     }
+    throw firstError;
   }
-
-  if (!candidate.content) {
-    throw new Error('No content returned from Gemini API candidates.');
-  }
-
-  const parts = candidate.content.parts;
-  if (!parts || parts.length === 0) {
-    throw new Error('No content parts returned from Gemini API.');
-  }
-
-  // Filter out thinking/reasoning parts (where part.thought === true) and join the text contents
-  const textContent = parts
-    .filter(part => !part.thought)
-    .map(part => part.text || '')
-    .join('')
-    .trim();
-
-  if (!textContent) {
-    throw new Error('No text content returned after filtering thoughts.');
-  }
-
-  return textContent;
 };
 
 // Helper to send quota-aware error responses
@@ -176,7 +305,7 @@ const handleApiError = (error, res, defaultMessage) => {
   }
 
   if (error.message?.startsWith('API_KEY_INVALID')) {
-    return res.status(401).json({
+    return res.status(400).json({
       message: error.message.replace('API_KEY_INVALID: ', ''),
       errorCode: 'API_KEY_INVALID',
     });
@@ -215,6 +344,10 @@ export const generatePaper = async (req, res) => {
       return res.status(400).json({ message: 'Too many chapters selected (max 50).' });
     }
 
+    const cleanSubject = String(subject).trim().substring(0, 200);
+    const cleanClass = String(studentClass).trim().substring(0, 50);
+    const cleanChapters = chapters.map(c => String(c).trim().substring(0, 200));
+
     const requirements = [
       `- Total marks: ${totalMarks || 100}`,
       `- Difficulty level: ${difficulty || 'Medium'}`,
@@ -229,7 +362,7 @@ export const generatePaper = async (req, res) => {
       requirements.push(`- Additional instructions: ${String(instructions).substring(0, 5000)}`);
     }
 
-    const prompt = `Generate a ${subject} question paper for class ${studentClass} based on chapters: ${chapters.join(', ')}${topics ? ` with focus on: ${String(topics).substring(0, 2000)}` : ''}. 
+    const prompt = `Generate a ${cleanSubject} question paper for class ${cleanClass} based on chapters: ${cleanChapters.join(', ')}${topics ? ` with focus on: ${String(topics).substring(0, 2000)}` : ''}. 
   
 Requirements:
 ${requirements.join('\n')}
@@ -245,24 +378,21 @@ Important: Generate the FULL question paper with all necessary questions to meet
   
 Make it look professional and exam-ready. Use proper markdown formatting for better readability.`;
 
-    // Resolve the best API key using smart priority
-    const { key: apiKey, source: keySource } = await resolveApiKey(req);
-
-    const content = await callGemini(prompt, apiKey);
+    const content = await callGeminiWithFallback(prompt, req);
 
     // Save to MongoDB database
     const paperInstance = await QuestionPaper.create({
-      subject: String(subject).trim().substring(0, 200),
-      class: String(studentClass).trim().substring(0, 50),
+      subject: cleanSubject,
+      class: cleanClass,
       totalMarks: Number(totalMarks) || 100,
       difficulty: difficulty || 'Medium',
       board: String(board || 'NCERT').trim().substring(0, 100),
-      chapters: chapters.map(c => String(c).trim().substring(0, 200)),
+      chapters: cleanChapters,
       topics: String(topics || '').substring(0, 2000),
       instructions: String(instructions || '').substring(0, 5000),
       pattern: String(pattern || 'Board-style').trim().substring(0, 200),
       questions: content,
-      userId: req.user.id,
+      userId: req.user?.id || null,
     });
 
     res.status(201).json({
@@ -281,8 +411,7 @@ Make it look professional and exam-ready. Use proper markdown formatting for bet
       evaluationResult: paperInstance.evaluationResult,
       createdAt: paperInstance.createdAt,
       updatedAt: paperInstance.updatedAt,
-      userId: paperInstance.userId.toString(),
-      keySource,
+      userId: paperInstance.userId ? paperInstance.userId.toString() : null,
     });
   } catch (error) {
     // Handle Mongoose validation errors separately
@@ -299,6 +428,9 @@ Make it look professional and exam-ready. Use proper markdown formatting for bet
 // @access  Private
 export const getPapers = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.json([]);
+    }
     const papers = await QuestionPaper.find({ userId: req.user.id }).sort({ createdAt: -1 });
 
     const parsedPapers = papers.map(paper => ({
@@ -317,7 +449,7 @@ export const getPapers = async (req, res) => {
       evaluationResult: paper.evaluationResult,
       createdAt: paper.createdAt,
       updatedAt: paper.updatedAt,
-      userId: paper.userId.toString(),
+      userId: paper.userId ? paper.userId.toString() : null,
     }));
 
     res.json(parsedPapers);
@@ -336,10 +468,7 @@ export const getPaperById = async (req, res) => {
       return res.status(400).json({ message: 'Invalid question paper identifier format.' });
     }
 
-    const paper = await QuestionPaper.findOne({
-      _id: req.params.id,
-      userId: req.user.id,
-    });
+    const paper = await findPaperForRequest(req.params.id, req);
 
     if (!paper) {
       return res.status(404).json({ message: 'Question paper not found or access denied.' });
@@ -361,7 +490,7 @@ export const getPaperById = async (req, res) => {
       evaluationResult: paper.evaluationResult,
       createdAt: paper.createdAt,
       updatedAt: paper.updatedAt,
-      userId: paper.userId.toString(),
+      userId: paper.userId ? paper.userId.toString() : null,
     });
   } catch (error) {
     console.error('Get paper by ID error:', error);
@@ -378,10 +507,7 @@ export const deletePaper = async (req, res) => {
       return res.status(400).json({ message: 'Invalid question paper identifier format.' });
     }
 
-    const paper = await QuestionPaper.findOne({
-      _id: req.params.id,
-      userId: req.user.id,
-    });
+    const paper = await findPaperForRequest(req.params.id, req);
 
     if (!paper) {
       return res.status(404).json({ message: 'Question paper not found or access denied.' });
@@ -405,10 +531,7 @@ export const generateSolutions = async (req, res) => {
       return res.status(400).json({ message: 'Invalid question paper identifier format.' });
     }
 
-    const paper = await QuestionPaper.findOne({
-      _id: req.params.id,
-      userId: req.user.id,
-    });
+    const paper = await findPaperForRequest(req.params.id, req);
 
     if (!paper) {
       return res.status(404).json({ message: 'Question paper not found or access denied.' });
@@ -430,8 +553,7 @@ Please format the solutions with:
 4. Final answers highlighted
 5. Alternative methods where applicable`;
 
-    const { key: apiKey } = await resolveApiKey(req);
-    const solutionContent = await callGemini(prompt, apiKey);
+    const solutionContent = await callGeminiWithFallback(prompt, req);
 
     // Update database
     paper.solutions = solutionContent;
@@ -462,10 +584,7 @@ export const evaluateAnswers = async (req, res) => {
       return res.status(400).json({ message: 'Invalid question paper identifier format.' });
     }
 
-    const paper = await QuestionPaper.findOne({
-      _id: req.params.id,
-      userId: req.user.id,
-    });
+    const paper = await findPaperForRequest(req.params.id, req);
 
     if (!paper) {
       return res.status(404).json({ message: 'Question paper not found or access denied.' });
@@ -485,8 +604,7 @@ Please provide:
 3. An overall summary.
 Make it structured and easy to read.`;
 
-    const { key: apiKey } = await resolveApiKey(req);
-    const evaluationContent = await callGemini(prompt, apiKey);
+    const evaluationContent = await callGeminiWithFallback(prompt, req);
 
     // Update database
     paper.evaluationResult = evaluationContent;
@@ -503,7 +621,7 @@ Make it structured and easy to read.`;
 // @access  Private
 export const chatbot = async (req, res) => {
   try {
-    const { message, paperId } = req.body;
+    const { message, paperId, history } = req.body;
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ message: 'Message is required.' });
@@ -516,10 +634,7 @@ export const chatbot = async (req, res) => {
 
     if (paperId && mongoose.Types.ObjectId.isValid(paperId)) {
       try {
-        const paper = await QuestionPaper.findOne({
-          _id: paperId,
-          userId: req.user.id,
-        });
+        const paper = await findPaperForRequest(paperId, req);
 
         if (paper) {
           contextPrompt = `Here's the context of the current question paper or study material:\n\nQuestion Paper:\n${paper.questions}${paper.solutions ? `\n\nSolutions:\n${paper.solutions}` : ''}\n\n`;
@@ -530,14 +645,23 @@ export const chatbot = async (req, res) => {
       }
     }
 
+    let historyPrompt = '';
+    if (history && Array.isArray(history) && history.length > 0) {
+      // Format chat history, limiting to last 10 messages to keep context size controlled
+      const recentHistory = history.slice(-10);
+      historyPrompt = recentHistory.map(msg => 
+        msg.isUser ? `Student: ${msg.text}` : `Tutor: ${msg.text}`
+      ).join('\n') + '\n\n';
+    }
+
     const prompt = `You are an AI educational assistant helping students with their studies. 
 ${contextPrompt}
-Student's question: ${sanitizedMessage}
+Here is the previous conversation history:
+${historyPrompt}Student's current question: ${sanitizedMessage}
  
 Please provide a helpful, educational response that helps the student understand the concepts better. Be clear, concise, and encouraging.`;
 
-    const { key: apiKey } = await resolveApiKey(req);
-    const chatResponse = await callGemini(prompt, apiKey);
+    const chatResponse = await callGeminiWithFallback(prompt, req);
 
     res.json({ response: chatResponse });
   } catch (error) {

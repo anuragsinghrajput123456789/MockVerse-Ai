@@ -33,8 +33,7 @@ const userSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Index for faster lookups (unique already creates one, but explicit for clarity)
-userSchema.index({ email: 1 });
+
 
 const User = mongoose.model('User', userSchema);
 export default User;

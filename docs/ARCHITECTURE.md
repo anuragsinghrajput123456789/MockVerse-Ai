@@ -198,7 +198,9 @@ graph TD
     
     subgraph Mitigation ["Mitigation Strategy Engine"]
         E -- "Invalid/Corrupted Structure" --> F["Fallback Formatter"]
-        E -- "Rate Limit (429)" --> G["Retry Backoff Scheduler"]
+        E -- "Rate Limit (429) / 5xx" --> G["3x Exponential Backoff Retry"]
+        E -- "API Key Exhausted" --> K["Server Default Key Fallback"]
+        E -- "Safety Blocked" --> L["Non-Retriable Error Response"]
         E -- "Clean Payload" --> H["Save & Render Document"]
     end
 ```
@@ -248,3 +250,8 @@ Security is layered throughout the entire infrastructure to maintain absolute st
    }
    ```
 3. **Strict Environment Segregation**: All secure tokens, including MongoDB connection strings and Gemini developer APIs, reside inside encrypted server configurations (Render/Vercel dashboards) rather than standard codebase repositories.
+4. **MongoDB Injection Prevention**: All request body parameters are explicitly cast to strings (`String(val || '')`) before being evaluated or passed into Mongoose queries, preventing object-based query operator injection attacks.
+5. **Rate Limiting**: Three tiers of rate limiting protect the API — general (100 req/15min), auth (10 req/15min), and AI generation (20 req/15min) — using `express-rate-limit`.
+6. **XSS Sanitization**: `DOMPurify` cleans user-generated HTML content in shared resource imports and HTML file exports. Protocol validation rejects `javascript:` URL schemes.
+7. **Helmet HTTP Headers**: `helmet` middleware applies security headers including XSS protection, content-type sniffing prevention, and HSTS.
+8. **Production Secret Enforcement**: The server throws a fatal exception at startup if `JWT_SECRET` is missing in production mode, preventing deployment with weak defaults.

@@ -15,7 +15,7 @@ const parseQuestions = (markdown: string): string[] => {
   let currentQuestion = '';
   
   // Detects start of a numbered question, e.g. "1. ", "Q2.", "Question 3:"
-  const questionStartRegex = /^\s*(?:Q(?:uestion)?\s*)?(\d+)\s*[\.\:\)]\s+(.+)/i;
+  const questionStartRegex = /^\s*(?:Q(?:uestion)?\s*)?(\d+)\s*[.:)]\s+(.+)/i;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

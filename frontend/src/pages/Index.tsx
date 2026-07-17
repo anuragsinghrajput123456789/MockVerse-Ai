@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PaperForm from '../components/PaperForm';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Chatbot from '../components/Chatbot';
+import Auth from './Auth';
 import { QuestionPaper, PaperFormData } from '../types';
 import { useToast } from '../hooks/use-toast';
 import AnswerTab from '../components/tabs/AnswerTab';
 import EvaluateTab from '../components/tabs/EvaluateTab';
 import ResourcesTab from '../components/tabs/ResourcesTab';
+
 import { generateQuestionPaper, generateSolutions, evaluateAnswers, getPapers, deletePaper, saveUserApiKey, getUserApiKey, deleteUserApiKey } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -41,6 +43,14 @@ import {
   Shield
 } from "lucide-react";
 
+// Memoize subcomponents to prevent unnecessary re-renders from state changes in the parent component
+const MemoizedHeader = React.memo(Header);
+const MemoizedFooter = React.memo(Footer);
+const MemoizedPaperForm = React.memo(PaperForm);
+const MemoizedAnswerTab = React.memo(AnswerTab);
+const MemoizedEvaluateTab = React.memo(EvaluateTab);
+const MemoizedResourcesTab = React.memo(ResourcesTab);
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [currentPaper, setCurrentPaper] = useState<QuestionPaper | null>(null);
@@ -66,7 +76,7 @@ const Index = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   
-  // Load paper history from backend MongoDB on mount
+  // Load paper history from backend MongoDB or localStorage on mount
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -83,10 +93,27 @@ const Index = () => {
         setHasStoredApiKey(data.hasApiKey);
         setApiKeyMasked(data.maskedKey);
       }).catch(() => {});
+    } else {
+      // Guest user history from localStorage
+      const guestHistoryStr = localStorage.getItem('mockverse_guest_papers');
+      if (guestHistoryStr) {
+        try {
+          const parsed = JSON.parse(guestHistoryStr);
+          if (Array.isArray(parsed)) {
+            setPaperHistory(parsed.map((p: any) => ({ ...p, createdAt: new Date(p.createdAt) })));
+          }
+        } catch (e) {
+          console.error('Error parsing guest papers:', e);
+        }
+      } else {
+        setPaperHistory([]);
+      }
+      setHasStoredApiKey(false);
+      setApiKeyMasked(null);
     }
   }, [user]);
   
-  const handleQuotaError = (error: any) => {
+  const handleQuotaError = useCallback((error: any) => {
     if (error.errorCode === 'API_KEY_QUOTA_EXHAUSTED' || error.statusCode === 429) {
       setQuotaModalMessage('Your API key has exceeded its usage limit. You can add a new API key below to continue generating, or wait for the quota to reset.');
       setQuotaModalKeyInput('');
@@ -100,9 +127,9 @@ const Index = () => {
       return true;
     }
     return false;
-  };
+  }, []);
 
-  const handleQuotaModalSave = async () => {
+  const handleQuotaModalSave = useCallback(async () => {
     if (!quotaModalKeyInput.trim()) return;
     setApiKeyLoading(true);
     try {
@@ -125,15 +152,23 @@ const Index = () => {
     } finally {
       setApiKeyLoading(false);
     }
-  };
+  }, [quotaModalKeyInput, toast]);
 
-  const handleGeneratePaper = async (formData: PaperFormData) => {
+  const handleGeneratePaper = useCallback(async (formData: PaperFormData) => {
     setLoading(true);
     try {
       const newPaper = await generateQuestionPaper(formData);
       
       setCurrentPaper(newPaper);
-      setPaperHistory(prev => [newPaper, ...prev]);
+      
+      setPaperHistory(prev => {
+        const updated = [newPaper, ...prev];
+        if (!user) {
+          localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
+        }
+        return updated;
+      });
+      
       setSolutions('');
       setEvaluationResult('');
       setActiveTab('answer');
@@ -154,9 +189,9 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast, handleQuotaError]);
 
-  const handleGenerateSolutions = async () => {
+  const handleGenerateSolutions = useCallback(async () => {
     if (!currentPaper) return;
     
     setLoading(true);
@@ -164,7 +199,14 @@ const Index = () => {
       const solutionContent = await generateSolutions(currentPaper.id);
       setSolutions(solutionContent);
       setCurrentPaper(prev => prev ? { ...prev, solutions: solutionContent } : null);
-      setPaperHistory(prev => prev.map(p => p.id === currentPaper.id ? { ...p, solutions: solutionContent } : p));
+      
+      setPaperHistory(prev => {
+        const updated = prev.map(p => p.id === currentPaper.id ? { ...p, solutions: solutionContent } : p);
+        if (!user) {
+          localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
+        }
+        return updated;
+      });
       
       toast({
         title: "Solutions Generated!",
@@ -182,9 +224,9 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPaper, user, toast, handleQuotaError]);
 
-  const handleSubmitAnswers = async (answers: string[]) => {
+  const handleSubmitAnswers = useCallback(async (answers: string[]) => {
     if (!currentPaper) return;
     
     setLoading(true);
@@ -192,7 +234,14 @@ const Index = () => {
       const result = await evaluateAnswers(currentPaper.id, answers);
       setEvaluationResult(result);
       setCurrentPaper(prev => prev ? { ...prev, evaluationResult: result } : null);
-      setPaperHistory(prev => prev.map(p => p.id === currentPaper.id ? { ...p, evaluationResult: result } : p));
+      
+      setPaperHistory(prev => {
+        const updated = prev.map(p => p.id === currentPaper.id ? { ...p, evaluationResult: result } : p);
+        if (!user) {
+          localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
+        }
+        return updated;
+      });
       setActiveTab('evaluate');
       
       toast({
@@ -211,10 +260,10 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPaper, user, toast, handleQuotaError]);
 
   // API Key Management Handlers
-  const handleSaveApiKey = async () => {
+  const handleSaveApiKey = useCallback(async () => {
     if (!apiKeyInput.trim()) return;
     setApiKeyLoading(true);
     try {
@@ -236,9 +285,9 @@ const Index = () => {
     } finally {
       setApiKeyLoading(false);
     }
-  };
+  }, [apiKeyInput, toast]);
 
-  const handleDeleteApiKey = async () => {
+  const handleDeleteApiKey = useCallback(async () => {
     setApiKeyLoading(true);
     try {
       await deleteUserApiKey();
@@ -258,22 +307,38 @@ const Index = () => {
     } finally {
       setApiKeyLoading(false);
     }
-  };
+  }, [toast]);
 
-  const handleSelectPaper = (paper: QuestionPaper) => {
+  const handleSelectPaper = useCallback((paper: QuestionPaper) => {
     setCurrentPaper(paper);
     setSolutions(paper.solutions || '');
     setEvaluationResult((paper as any).evaluationResult || '');
     setActiveTab('answer');
-  };
+  }, []);
 
-  const handleDeletePaper = async (e: React.MouseEvent, id: string) => {
+  const handleDeletePaper = useCallback(async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this question paper from your history?")) {
       setLoading(true);
       try {
-        await deletePaper(id);
-        setPaperHistory(prev => prev.filter(p => p.id !== id));
+        if (user) {
+          await deletePaper(id);
+        } else {
+          try {
+            await deletePaper(id);
+          } catch (err) {
+            console.warn("Failed to delete paper from backend database, continuing locally", err);
+          }
+        }
+        
+        setPaperHistory(prev => {
+          const updated = prev.filter(p => p.id !== id);
+          if (!user) {
+            localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
+          }
+          return updated;
+        });
+
         if (currentPaper?.id === id) {
           setCurrentPaper(null);
           setSolutions('');
@@ -294,11 +359,11 @@ const Index = () => {
         setLoading(false);
       }
     }
-  };
+  }, [user, currentPaper, toast]);
 
-  const toggleFaq = (index: number) => {
+  const toggleFaq = useCallback((index: number) => {
     setFaqOpen(prev => ({ ...prev, [index]: !prev[index] }));
-  };
+  }, []);
 
   const testimonials = [
     {
@@ -336,9 +401,9 @@ const Index = () => {
           <div className="space-y-20 animate-fade-in stagger-children">
             {/* Hero Section */}
             <div className="relative rounded-3xl overflow-hidden glass-panel p-8 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10">
-              {/* Decorative glows */}
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] glow-bg-indigo opacity-30 pointer-events-none rounded-full blur-[120px]" />
-              <div className="absolute bottom-0 left-0 w-[400px] h-[400px] glow-bg-pink opacity-20 pointer-events-none rounded-full blur-[100px]" />
+              {/* Decorative glows (optimized blur) */}
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] glow-bg-indigo opacity-30 pointer-events-none rounded-full blur-[40px]" />
+              <div className="absolute bottom-0 left-0 w-[400px] h-[400px] glow-bg-pink opacity-20 pointer-events-none rounded-full blur-[40px]" />
 
               <div className="space-y-6 md:w-3/5 relative z-10">
                 <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider animate-pulse-glow">
@@ -454,7 +519,7 @@ const Index = () => {
 
             {/* Advanced Analytics Section */}
             <div className="glass-panel rounded-3xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-[300px] h-[300px] glow-bg-indigo opacity-20 pointer-events-none rounded-full blur-[80px]" />
+              <div className="absolute top-0 left-0 w-[300px] h-[300px] glow-bg-indigo opacity-20 pointer-events-none rounded-full blur-[30px]" />
               
               <div className="relative z-10 flex flex-col lg:flex-row gap-10 items-center justify-between">
                 <div className="lg:w-1/3 space-y-4">
@@ -544,7 +609,7 @@ const Index = () => {
 
             {/* Testimonials Carousel Section */}
             <div className="glass-panel rounded-3xl p-8 md:p-12 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-[300px] h-[300px] glow-bg-pink opacity-20 pointer-events-none rounded-full blur-[80px]" />
+              <div className="absolute top-0 right-0 w-[300px] h-[300px] glow-bg-pink opacity-20 pointer-events-none rounded-full blur-[30px]" />
               
               <div className="max-w-3xl mx-auto text-center space-y-6 relative z-10">
                 <Quote className="w-12 h-12 text-slate-700 mx-auto opacity-40 animate-pulse" />
@@ -632,7 +697,7 @@ const Index = () => {
               <Sparkles className="w-6 h-6 text-indigo-400" />
               <h2 className="text-2xl font-bold text-white">Create Custom Exam Sheet</h2>
             </div>
-            <PaperForm onSubmit={handleGeneratePaper} loading={loading} />
+            <MemoizedPaperForm onSubmit={handleGeneratePaper} loading={loading} />
           </div>
         );
       
@@ -643,7 +708,7 @@ const Index = () => {
               <PenTool className="w-6 h-6 text-pink-400" />
               <h2 className="text-2xl font-bold text-white">Solve & Answering Tab</h2>
             </div>
-            <AnswerTab
+            <MemoizedAnswerTab
               currentPaper={currentPaper}
               solutions={solutions}
               loading={loading}
@@ -661,7 +726,7 @@ const Index = () => {
               <BarChart2 className="w-6 h-6 text-purple-400" />
               <h2 className="text-2xl font-bold text-white">Smart Answer Evaluation</h2>
             </div>
-            <EvaluateTab
+            <MemoizedEvaluateTab
               evaluationResult={evaluationResult}
               onNavigateToAnswer={() => setActiveTab('answer')}
             />
@@ -675,7 +740,7 @@ const Index = () => {
               <BookOpen className="w-6 h-6 text-blue-400" />
               <h2 className="text-2xl font-bold text-white">Study Library & Resources</h2>
             </div>
-            <ResourcesTab />
+            <MemoizedResourcesTab />
           </div>
         );
       
@@ -725,7 +790,18 @@ const Index = () => {
           </div>
         );
 
-      case 'profile':
+      case 'profile': {
+        if (!user) {
+          return (
+            <div className="glass-panel rounded-3xl p-6 md:p-8 animate-fade-in max-w-4xl mx-auto">
+              <div className="flex items-center space-x-3 border-b border-white/5 pb-4 mb-6">
+                <UserIcon className="w-6 h-6 text-indigo-400" />
+                <h2 className="text-2xl font-bold text-white">Sign In to Your Account</h2>
+              </div>
+              <Auth isInline={true} />
+            </div>
+          );
+        }
         const savedResources = JSON.parse(localStorage.getItem('resources') || '[]');
         const totalPapers = paperHistory.length;
         const totalEvaluations = paperHistory.filter(p => p.evaluationResult).length;
@@ -995,6 +1071,7 @@ const Index = () => {
             </div>
           </div>
         );
+      }
       
       default:
         return null;
@@ -1005,11 +1082,11 @@ const Index = () => {
     <>
       <div className="min-h-screen bg-[#0B0F19] transition-colors relative flex flex-col justify-between">
         {/* Absolute ambient vector mesh */}
-        <div className="animate-mesh-1 absolute top-[10%] left-[-15%] w-[600px] h-[600px] glow-bg-indigo opacity-20 pointer-events-none rounded-full blur-[130px]" />
-        <div className="animate-mesh-2 absolute bottom-[20%] right-[-15%] w-[600px] h-[600px] glow-bg-pink opacity-15 pointer-events-none rounded-full blur-[130px]" />
+        <div className="animate-mesh-1 absolute top-[10%] left-[-15%] w-[600px] h-[600px] glow-bg-indigo opacity-20 pointer-events-none rounded-full blur-[40px]" />
+        <div className="animate-mesh-2 absolute bottom-[20%] right-[-15%] w-[600px] h-[600px] glow-bg-pink opacity-15 pointer-events-none rounded-full blur-[40px]" />
         
         <div>
-          <Header activeTab={activeTab} onTabChange={setActiveTab} />
+          <MemoizedHeader activeTab={activeTab} onTabChange={setActiveTab} />
           
           <main className="container mx-auto px-4 py-8 lg:px-8 relative z-10 flex-grow">
             <div className="max-w-6xl mx-auto">
@@ -1031,7 +1108,7 @@ const Index = () => {
         
         <Chatbot paperId={currentPaper?.id} />
         
-        <Footer onTabChange={setActiveTab} />
+        <MemoizedFooter onTabChange={setActiveTab} />
       </div>
 
       {/* ═══ API KEY QUOTA EXHAUSTED POP-UP MODAL ═══ */}

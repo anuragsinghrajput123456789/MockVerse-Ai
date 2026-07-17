@@ -26,10 +26,10 @@ export function useDownloadQuestionPaperPDF() {
         description: "Generating layouts and compiling formulas...",
       });
 
-      // 1. Prepare the container in viewport bounds but invisible to the user
+      // 1. Prepare the container off-screen to avoid mobile viewport clipping
       const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '0';
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
       container.style.top = '0';
       container.style.width = '210mm';
       container.style.minHeight = '297mm';
@@ -69,16 +69,36 @@ export function useDownloadQuestionPaperPDF() {
           throw new Error("Failed to render PDF layout: .pdf-main-content not found in DOM");
         }
 
+        // Wait for all images inside the layout to load fully before pagination and measurement
+        const images = Array.from(paperContentDiv.querySelectorAll('img'));
+        await Promise.all(
+          images.map((img) => {
+            if (img.complete) return Promise.resolve();
+            return new Promise<void>((resolve) => {
+              img.onload = () => resolve();
+              img.onerror = () => resolve(); // continue even if image fails to load
+            });
+          })
+        );
+
         // Give browser and layout systems a short wait state to settle text rendering
         await new Promise(res => setTimeout(res, 120));
 
         // Trigger MathJax compilation with a strict 1-second timeout race to prevent hanging
         const MJ = (window as any).MathJax;
         if (MJ && MJ.typesetPromise) {
-          await Promise.race([
-            MJ.typesetPromise([container]),
-            new Promise(res => setTimeout(res, 1000))
-          ]);
+          let mathjaxTimeoutId: any;
+          const mathjaxTimeoutPromise = new Promise(res => {
+            mathjaxTimeoutId = setTimeout(res, 1000);
+          });
+          try {
+            await Promise.race([
+              MJ.typesetPromise([container]),
+              mathjaxTimeoutPromise
+            ]);
+          } finally {
+            clearTimeout(mathjaxTimeoutId);
+          }
           // Wait a tiny bit for typeset drawings to settle
           await new Promise(res => setTimeout(res, 80));
         }
@@ -227,11 +247,11 @@ export function useDownloadQuestionPaperPDF() {
         let currentPageHeightUsed = headerHeight + instructionsHeight;
 
         for (const layoutEl of contentElements) {
-          // If adding this element exceeds the limit, push to next page
-          if (currentPageHeightUsed + layoutEl.height > usableHeightPx) {
+          // If adding this element exceeds the limit, and the current page already has elements, push to next page
+          if (pages[currentPageIndex].length > 0 && currentPageHeightUsed + layoutEl.height > usableHeightPx) {
             currentPageIndex++;
             pages.push([]);
-            currentPageHeightUsed = 0; // Page 2 starts clean
+            currentPageHeightUsed = 0; // New page starts clean
           }
           pages[currentPageIndex].push(layoutEl);
           currentPageHeightUsed += layoutEl.height;
@@ -249,7 +269,7 @@ export function useDownloadQuestionPaperPDF() {
           pageDiv.style.background = '#fff';
           pageDiv.style.overflow = 'hidden';
           pageDiv.style.color = '#000';
-          pageDiv.style.fontFamily = "'Times New Roman', Times, serif";
+          pageDiv.style.fontFamily = "Times New Roman, Times, Georgia, serif";
           pageDiv.style.fontSize = '13pt';
           pageDiv.style.display = 'flex';
           pageDiv.style.flexDirection = 'column';
@@ -300,7 +320,7 @@ export function useDownloadQuestionPaperPDF() {
           footerDiv.style.paddingTop = '6px';
           footerDiv.style.fontSize = '11pt';
           footerDiv.style.color = '#222';
-          footerDiv.style.fontFamily = "'Times New Roman', Times, serif";
+          footerDiv.style.fontFamily = "Times New Roman, Times, Georgia, serif";
           
           const currentDate = new Date();
           const formattedDate = currentDate.toLocaleDateString("en-GB");
@@ -322,31 +342,38 @@ export function useDownloadQuestionPaperPDF() {
         for (let i = 0; i < pageElements.length; i++) {
           const pageEl = pageElements[i] as HTMLElement;
 
-          const canvas = await Promise.race([
-            html2canvas(pageEl, {
-              scale: 1.5, // 1.5 scale balances rendering speed and sharpness
-              useCORS: false,
-              allowTaint: true,
-              logging: false,
-              backgroundColor: '#fff',
-              width: pageWidthPx,
-              height: pageHeightPx,
-              windowWidth: pageWidthPx,
-              windowHeight: pageHeightPx,
-              scrollX: 0,
-              scrollY: 0
-            }),
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error(`PDF compilation timed out on page ${i + 1}`)), 12000)
-            )
-          ]);
+          let pageTimeoutId: any;
+          const pageTimeoutPromise = new Promise<never>((_, reject) => {
+            pageTimeoutId = setTimeout(() => reject(new Error(`PDF compilation timed out on page ${i + 1}`)), 12000);
+          });
+          
+          try {
+            const canvas = await Promise.race([
+              html2canvas(pageEl, {
+                scale: 1.5, // 1.5 scale balances rendering speed and sharpness
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                backgroundColor: '#fff',
+                width: pageWidthPx,
+                height: pageHeightPx,
+                windowWidth: pageWidthPx,
+                windowHeight: pageHeightPx,
+                scrollX: 0,
+                scrollY: 0
+              }),
+              pageTimeoutPromise
+            ]);
 
-          const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
 
-          if (i > 0) {
-            pdf.addPage();
+            if (i > 0) {
+              pdf.addPage();
+            }
+            pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
+          } finally {
+            clearTimeout(pageTimeoutId);
           }
-          pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
         }
 
         // 4. Save the file
