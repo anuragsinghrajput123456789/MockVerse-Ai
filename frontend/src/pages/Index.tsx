@@ -1,47 +1,18 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import PaperForm from '../components/PaperForm';
-import LoadingSpinner from '../components/LoadingSpinner';
-import Chatbot from '../components/Chatbot';
-import Auth from './Auth';
-import { QuestionPaper, PaperFormData } from '../types';
-import { useToast } from '../hooks/use-toast';
-import AnswerTab from '../components/tabs/AnswerTab';
-import EvaluateTab from '../components/tabs/EvaluateTab';
-import ResourcesTab from '../components/tabs/ResourcesTab';
+import React from 'react';
+import Header from '../shared/components/Header';
+import Footer from '../shared/components/Footer';
+import PaperForm from '../features/papers/PaperForm';
+import LoadingSpinner from '../shared/components/LoadingSpinner';
+import Chatbot from '../features/chat/Chatbot';
+import AnswerTab from '../features/papers/AnswerTab';
+import EvaluateTab from '../features/papers/EvaluateTab';
+import ResourcesTab from '../features/resources/ResourcesTab';
 
-import { generateQuestionPaper, generateSolutions, evaluateAnswers, getPapers, deletePaper, saveUserApiKey, getUserApiKey, deleteUserApiKey } from '../services/apiService';
-import { useAuth } from '../contexts/AuthContext';
-import { 
-  Sparkles, 
-  PenTool, 
-  BarChart2, 
-  BookOpen, 
-  History, 
-  ArrowRight, 
-  Award, 
-  Brain, 
-  TrendingUp, 
-  User as UserIcon, 
-  CheckCircle2, 
-  Settings as SettingsIcon,
-  HelpCircle,
-  ChevronDown,
-  Quote,
-  Zap,
-  Clock,
-  Target,
-  FileText,
-  ShieldAlert,
-  Trash2,
-  Key,
-  AlertTriangle,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  Shield
-} from "lucide-react";
+import { useIndexState } from './index/useIndexState';
+import HomeTab from './index/HomeTab';
+import HistoryTab from '../features/history/HistoryTab';
+import ProfileTab from '../features/profile/ProfileTab';
+import QuotaModal from './index/components/QuotaModal';
 
 // Memoize subcomponents to prevent unnecessary re-renders from state changes in the parent component
 const MemoizedHeader = React.memo(Header);
@@ -51,650 +22,62 @@ const MemoizedAnswerTab = React.memo(AnswerTab);
 const MemoizedEvaluateTab = React.memo(EvaluateTab);
 const MemoizedResourcesTab = React.memo(ResourcesTab);
 
-const Index = () => {
-  const [activeTab, setActiveTab] = useState('home');
-  const [currentPaper, setCurrentPaper] = useState<QuestionPaper | null>(null);
-  const [solutions, setSolutions] = useState<string>('');
-  const [evaluationResult, setEvaluationResult] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
-  const [faqOpen, setFaqOpen] = useState<Record<number, boolean>>({});
-  const [testimonialIndex, setTestimonialIndex] = useState(0);
-  
-  // API Key Management State
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [apiKeyMasked, setApiKeyMasked] = useState<string | null>(null);
-  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
-  const [apiKeyLoading, setApiKeyLoading] = useState(false);
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-  
-  // Quota Alert Modal State
-  const [showQuotaModal, setShowQuotaModal] = useState(false);
-  const [quotaModalMessage, setQuotaModalMessage] = useState('');
-  const [quotaModalKeyInput, setQuotaModalKeyInput] = useState('');
-  
-  const { user, logout } = useAuth();
-  const { toast } = useToast();
-  
-  // Load paper history from backend MongoDB or localStorage on mount
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const history = await getPapers();
-        setPaperHistory(history);
-      } catch (error: any) {
-        console.error('Error fetching paper history:', error);
-      }
-    };
-    if (user) {
-      fetchHistory();
-      // Load API key status
-      getUserApiKey().then(data => {
-        setHasStoredApiKey(data.hasApiKey);
-        setApiKeyMasked(data.maskedKey);
-      }).catch(() => {});
-    } else {
-      // Guest user history from localStorage
-      const guestHistoryStr = localStorage.getItem('mockverse_guest_papers');
-      if (guestHistoryStr) {
-        try {
-          const parsed = JSON.parse(guestHistoryStr);
-          if (Array.isArray(parsed)) {
-            setPaperHistory(parsed.map((p: any) => ({ ...p, createdAt: new Date(p.createdAt) })));
-          }
-        } catch (e) {
-          console.error('Error parsing guest papers:', e);
-        }
-      } else {
-        setPaperHistory([]);
-      }
-      setHasStoredApiKey(false);
-      setApiKeyMasked(null);
-    }
-  }, [user]);
-  
-  const handleQuotaError = useCallback((error: any) => {
-    if (error.errorCode === 'API_KEY_QUOTA_EXHAUSTED' || error.statusCode === 429) {
-      setQuotaModalMessage('Your API key has exceeded its usage limit. You can add a new API key below to continue generating, or wait for the quota to reset.');
-      setQuotaModalKeyInput('');
-      setShowQuotaModal(true);
-      return true;
-    }
-    if (error.errorCode === 'API_KEY_INVALID' || error.statusCode === 401) {
-      setQuotaModalMessage('The provided API key is invalid or expired. Please enter a valid Gemini API key below to continue.');
-      setQuotaModalKeyInput('');
-      setShowQuotaModal(true);
-      return true;
-    }
-    return false;
-  }, []);
-
-  const handleQuotaModalSave = useCallback(async () => {
-    if (!quotaModalKeyInput.trim()) return;
-    setApiKeyLoading(true);
-    try {
-      const result = await saveUserApiKey(quotaModalKeyInput.trim());
-      setHasStoredApiKey(true);
-      setApiKeyMasked(result.maskedKey);
-      setApiKeyInput('');
-      setQuotaModalKeyInput('');
-      setShowQuotaModal(false);
-      toast({
-        title: "🔑 API Key Updated!",
-        description: "Your new Gemini API key has been saved. You can now generate papers again.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save API key.",
-        variant: "destructive",
-      });
-    } finally {
-      setApiKeyLoading(false);
-    }
-  }, [quotaModalKeyInput, toast]);
-
-  const handleGeneratePaper = useCallback(async (formData: PaperFormData) => {
-    setLoading(true);
-    try {
-      const newPaper = await generateQuestionPaper(formData);
-      
-      setCurrentPaper(newPaper);
-      
-      setPaperHistory(prev => {
-        const updated = [newPaper, ...prev];
-        if (!user) {
-          localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
-        }
-        return updated;
-      });
-      
-      setSolutions('');
-      setEvaluationResult('');
-      setActiveTab('answer');
-      
-      toast({
-        title: "Question Paper Generated!",
-        description: "Your paper has been generated successfully.",
-      });
-    } catch (error: any) {
-      console.error('Error generating paper:', error);
-      if (!handleQuotaError(error)) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to generate paper. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [user, toast, handleQuotaError]);
-
-  const handleGenerateSolutions = useCallback(async () => {
-    if (!currentPaper) return;
-    
-    setLoading(true);
-    try {
-      const solutionContent = await generateSolutions(currentPaper.id);
-      setSolutions(solutionContent);
-      setCurrentPaper(prev => prev ? { ...prev, solutions: solutionContent } : null);
-      
-      setPaperHistory(prev => {
-        const updated = prev.map(p => p.id === currentPaper.id ? { ...p, solutions: solutionContent } : p);
-        if (!user) {
-          localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
-        }
-        return updated;
-      });
-      
-      toast({
-        title: "Solutions Generated!",
-        description: "Solutions have been generated successfully.",
-      });
-    } catch (error: any) {
-      console.error('Error generating solutions:', error);
-      if (!handleQuotaError(error)) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to generate solutions. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPaper, user, toast, handleQuotaError]);
-
-  const handleSubmitAnswers = useCallback(async (answers: string[]) => {
-    if (!currentPaper) return;
-    
-    setLoading(true);
-    try {
-      const result = await evaluateAnswers(currentPaper.id, answers);
-      setEvaluationResult(result);
-      setCurrentPaper(prev => prev ? { ...prev, evaluationResult: result } : null);
-      
-      setPaperHistory(prev => {
-        const updated = prev.map(p => p.id === currentPaper.id ? { ...p, evaluationResult: result } : p);
-        if (!user) {
-          localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
-        }
-        return updated;
-      });
-      setActiveTab('evaluate');
-      
-      toast({
-        title: "Answers Evaluated!",
-        description: "Your answers have been evaluated successfully.",
-      });
-    } catch (error: any) {
-      console.error('Error evaluating answers:', error);
-      if (!handleQuotaError(error)) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to evaluate answers. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPaper, user, toast, handleQuotaError]);
-
-  // API Key Management Handlers
-  const handleSaveApiKey = useCallback(async () => {
-    if (!apiKeyInput.trim()) return;
-    setApiKeyLoading(true);
-    try {
-      const result = await saveUserApiKey(apiKeyInput.trim());
-      setHasStoredApiKey(true);
-      setApiKeyMasked(result.maskedKey);
-      setApiKeyInput('');
-      setShowApiKeyInput(false);
-      toast({
-        title: "🔑 API Key Saved!",
-        description: "Your Gemini API key has been encrypted and stored securely.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save API key.",
-        variant: "destructive",
-      });
-    } finally {
-      setApiKeyLoading(false);
-    }
-  }, [apiKeyInput, toast]);
-
-  const handleDeleteApiKey = useCallback(async () => {
-    setApiKeyLoading(true);
-    try {
-      await deleteUserApiKey();
-      setHasStoredApiKey(false);
-      setApiKeyMasked(null);
-      setApiKeyInput('');
-      toast({
-        title: "API Key Removed",
-        description: "Your stored API key has been deleted. The server default key will be used.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete API key.",
-        variant: "destructive",
-      });
-    } finally {
-      setApiKeyLoading(false);
-    }
-  }, [toast]);
-
-  const handleSelectPaper = useCallback((paper: QuestionPaper) => {
-    setCurrentPaper(paper);
-    setSolutions(paper.solutions || '');
-    setEvaluationResult((paper as any).evaluationResult || '');
-    setActiveTab('answer');
-  }, []);
-
-  const handleDeletePaper = useCallback(async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this question paper from your history?")) {
-      setLoading(true);
-      try {
-        if (user) {
-          await deletePaper(id);
-        } else {
-          try {
-            await deletePaper(id);
-          } catch (err) {
-            console.warn("Failed to delete paper from backend database, continuing locally", err);
-          }
-        }
-        
-        setPaperHistory(prev => {
-          const updated = prev.filter(p => p.id !== id);
-          if (!user) {
-            localStorage.setItem('mockverse_guest_papers', JSON.stringify(updated));
-          }
-          return updated;
-        });
-
-        if (currentPaper?.id === id) {
-          setCurrentPaper(null);
-          setSolutions('');
-          setEvaluationResult('');
-        }
-        toast({
-          title: "Question Paper Deleted",
-          description: "Your paper has been removed successfully.",
-        });
-      } catch (error: any) {
-        console.error('Error deleting paper:', error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete paper. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
-  }, [user, currentPaper, toast]);
-
-  const toggleFaq = useCallback((index: number) => {
-    setFaqOpen(prev => ({ ...prev, [index]: !prev[index] }));
-  }, []);
-
-  const testimonials = [
-    {
-      name: "Aditya Sharma",
-      role: "Class 12 Student (CBSE)",
-      avatar: "AS",
-      feedback: "MockVerse completely changed how I prepare for my boards. The AI generates questions that align perfectly with the CBSE curriculum, and the evaluation details show exactly where I lost marks."
-    },
-    {
-      name: "Sneha Patel",
-      role: "EdTech Curriculum Designer",
-      avatar: "SP",
-      feedback: "The speed and high accuracy of the question paper generation is remarkable. It supports custom mark patterns, chapter filters, and the detailed answer key is an absolute lifesaver for educators."
-    },
-    {
-      name: "Rohan Das",
-      role: "JEE Aspirant",
-      avatar: "RD",
-      feedback: "Using the AI chatbot while solving papers feels like having a personal tutor next to me. I can ask questions about the generated solutions and get instant, helpful explanations."
-    }
-  ];
-
-  const handleNextTestimonial = () => {
-    setTestimonialIndex((prev) => (prev + 1) % testimonials.length);
-  };
-
-  const handlePrevTestimonial = () => {
-    setTestimonialIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
-  };
+export const Index = () => {
+  const {
+    activeTab,
+    setActiveTab,
+    currentPaper,
+    solutions,
+    evaluationResult,
+    loading,
+    paperHistory,
+    faqOpen,
+    testimonialIndex,
+    setTestimonialIndex,
+    apiKeyInput,
+    setApiKeyInput,
+    apiKeyMasked,
+    hasStoredApiKey,
+    apiKeyLoading,
+    showApiKeyInput,
+    setShowApiKeyInput,
+    showQuotaModal,
+    setShowQuotaModal,
+    quotaModalMessage,
+    quotaModalKeyInput,
+    setQuotaModalKeyInput,
+    user,
+    logout,
+    handleQuotaModalSave,
+    handleGeneratePaper,
+    handleGenerateSolutions,
+    handleSubmitAnswers,
+    handleSaveApiKey,
+    handleDeleteApiKey,
+    handleSelectPaper,
+    handleDeletePaper,
+    toggleFaq,
+    handleSaveSettings
+  } = useIndexState();
 
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
         return (
-          <div className="space-y-20 animate-fade-in stagger-children">
-            {/* Hero Section */}
-            <div className="relative rounded-3xl overflow-hidden glass-panel p-8 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10">
-              {/* Decorative glows (optimized blur) */}
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] glow-bg-indigo opacity-30 pointer-events-none rounded-full blur-[40px]" />
-              <div className="absolute bottom-0 left-0 w-[400px] h-[400px] glow-bg-pink opacity-20 pointer-events-none rounded-full blur-[40px]" />
-
-              <div className="space-y-6 md:w-3/5 relative z-10">
-                <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider animate-pulse-glow">
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>Powered by Gemini 1.5 Pro</span>
-                </div>
-                
-                <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight">
-                  Master Your Exams With <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">MockVerse.(AI)</span>
-                </h1>
-                
-                <p className="text-lg text-slate-300 leading-relaxed max-w-xl">
-                  The ultimate smart study companion. Instantly generate balanced custom question papers, fetch itemized worked solutions, and evaluate your answers with deep AI feedback.
-                </p>
-
-                <div className="flex flex-wrap gap-4 pt-4">
-                  <button
-                    onClick={() => setActiveTab('generate')}
-                    className="px-8 py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all duration-300 hover:scale-105 flex items-center space-x-2"
-                  >
-                    <span>Create Custom Exam</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </button>
-                  
-                  <button
-                    onClick={() => setActiveTab('resources')}
-                    className="px-8 py-4 bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/10 text-white font-bold rounded-xl transition-all duration-300 hover:scale-105"
-                  >
-                    Explore Library
-                  </button>
-                </div>
-
-                <div className="flex items-center space-x-6 pt-6 border-t border-white/5 text-xs text-slate-500">
-                  <div className="flex items-center space-x-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span>Relational DB Security</span>
-                  </div>
-                  <div className="flex items-center space-x-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-indigo-400" />
-                    <span>Bloom's Taxonomy Compliant</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Showcase Hero Image Container */}
-              <div className="md:w-2/5 flex justify-center relative">
-                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-pink-500/20 rounded-2xl blur-3xl pointer-events-none" />
-                <img 
-                  src="/images/mockverse_workspace_hero.png" 
-                  alt="MockVerse Futuristic Screen" 
-                  className="w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl animate-float relative z-10"
-                />
-              </div>
-            </div>
-
-            {/* Quick Actions Grid */}
-            <div className="space-y-6">
-              <h2 className="text-2xl md:text-3xl font-extrabold text-white text-center">
-                Launch Core Tools
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
-                {[
-                  {
-                    title: "Generate Paper",
-                    desc: "Configure subject, marks, and parameters to instantly build balanced exam papers.",
-                    tab: "generate",
-                    icon: Sparkles,
-                    color: "border-indigo-500/20 text-indigo-400 hover:shadow-indigo-500/10",
-                  },
-                  {
-                    title: "Solve & Answer",
-                    desc: "Simulate test conditions, solve questions under a Pomodoro clock, and get prompt keys.",
-                    tab: "answer",
-                    icon: PenTool,
-                    color: "border-pink-500/20 text-pink-400 hover:shadow-pink-500/10",
-                  },
-                  {
-                    title: "Smart Evaluate",
-                    desc: "Submit your written answers to get instant line-by-line AI grading and constructive reviews.",
-                    tab: "evaluate",
-                    icon: BarChart2,
-                    color: "border-purple-500/20 text-purple-400 hover:shadow-purple-500/10",
-                  },
-                  {
-                    title: "Resource Library",
-                    desc: "Save papers, write books list, keep structured reference materials close to you.",
-                    tab: "resources",
-                    icon: BookOpen,
-                    color: "border-blue-500/20 text-blue-400 hover:shadow-blue-500/10",
-                  }
-                ].map((action, idx) => {
-                  const Icon = action.icon;
-                  return (
-                    <div 
-                      key={idx}
-                      onClick={() => setActiveTab(action.tab)}
-                      className={`glass-card glass-card-hover p-6 rounded-2xl border cursor-pointer ${action.color}`}
-                    >
-                      <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-lg font-bold text-white mb-2">{action.title}</h3>
-                      <p className="text-sm text-slate-400 leading-relaxed mb-4">{action.desc}</p>
-                      <span className="text-xs font-semibold inline-flex items-center space-x-1 hover:underline">
-                        <span>Launch Tool</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Advanced Analytics Section */}
-            <div className="glass-panel rounded-3xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-[300px] h-[300px] glow-bg-indigo opacity-20 pointer-events-none rounded-full blur-[30px]" />
-              
-              <div className="relative z-10 flex flex-col lg:flex-row gap-10 items-center justify-between">
-                <div className="lg:w-1/3 space-y-4">
-                  <h2 className="text-3xl font-extrabold text-white">Your Analytics & Progress</h2>
-                  <p className="text-sm leading-relaxed text-slate-400">
-                    Track your prep level across chapters. Our system correlates your answer reviews and visualizes overall subject completeness metrics.
-                  </p>
-                  
-                  {/* Circular Progress Metre */}
-                  <div className="flex items-center space-x-4 p-4 rounded-xl bg-white/5 border border-white/5">
-                    <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
-                      <svg className="w-full h-full transform -rotate-90">
-                        <circle cx="32" cy="32" r="28" className="stroke-slate-800" strokeWidth="4" fill="transparent" />
-                        <circle cx="32" cy="32" r="28" className="stroke-indigo-500" strokeWidth="4" fill="transparent"
-                          strokeDasharray={175} strokeDashoffset={175 - (175 * 84) / 100} strokeLinecap="round" />
-                      </svg>
-                      <span className="absolute text-sm font-bold text-white">84%</span>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-white">Weekly Prep Completion</h4>
-                      <p className="text-xs text-slate-500">Goal: 5 Exam Sets • Active</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="lg:w-2/3 w-full grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
-                  {[
-                    { label: "AI Evaluated Sheets", value: "984", trend: "+18%", color: "text-indigo-400" },
-                    { label: "Generated Papers", value: "1,250", trend: "+24%", color: "text-pink-400" },
-                    { label: "Saved Notes/Library", value: "42", trend: "+8%", color: "text-purple-400" }
-                  ].map((stat, idx) => (
-                    <div key={idx} className="glass-card p-6 rounded-2xl border border-white/5 relative flex flex-col justify-between min-h-[140px]">
-                      <div>
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</span>
-                        <h3 className={`text-3xl font-extrabold mt-2 ${stat.color}`}>{stat.value}</h3>
-                      </div>
-                      <div className="flex items-center justify-between border-t border-white/5 pt-2 mt-4 text-xs">
-                        <span className="text-emerald-400 font-bold">{stat.trend} this week</span>
-                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Feature Showcase List */}
-            <div className="space-y-6">
-              <div className="text-center max-w-xl mx-auto space-y-2">
-                <h2 className="text-3xl font-extrabold text-white">Platform Core Ecosystem Capabilities</h2>
-                <p className="text-sm text-slate-400">
-                  Comprehensive smart classroom integrations built for student curriculum mastery.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-children">
-                {[
-                  {
-                    title: "AI Question Generation",
-                    desc: "Constructs multi-part questions matching CBSE, ICSE, or generic boards using cognitive depth parameters.",
-                    icon: Brain
-                  },
-                  {
-                    title: "Smart Evaluation System",
-                    desc: "Checks semantic alignment, lists correct keywords, and marks exactly where structural improvements are needed.",
-                    icon: Award
-                  },
-                  {
-                    title: "Live Chatbot Tutor",
-                    desc: "Interactive assistant loaded dynamically with your active question sheet context to explain answers line-by-line.",
-                    icon: CheckCircle2
-                  }
-                ].map((feat, idx) => {
-                  const Icon = feat.icon;
-                  return (
-                    <div key={idx} className="glass-card p-8 rounded-2xl border border-white/5 space-y-4">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-xl font-bold text-white">{feat.title}</h3>
-                      <p className="text-sm text-slate-400 leading-relaxed">{feat.desc}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Testimonials Carousel Section */}
-            <div className="glass-panel rounded-3xl p-8 md:p-12 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-[300px] h-[300px] glow-bg-pink opacity-20 pointer-events-none rounded-full blur-[30px]" />
-              
-              <div className="max-w-3xl mx-auto text-center space-y-6 relative z-10">
-                <Quote className="w-12 h-12 text-slate-700 mx-auto opacity-40 animate-pulse" />
-                
-                {/* Active Testimonial Card */}
-                <div className="space-y-6 animate-fade-in" key={testimonialIndex}>
-                  <p className="text-xl text-slate-200 font-medium leading-relaxed italic">
-                    "{testimonials[testimonialIndex].feedback}"
-                  </p>
-                  
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-pink-500 flex items-center justify-center font-bold text-white text-sm">
-                      {testimonials[testimonialIndex].avatar}
-                    </div>
-                    <div className="text-left">
-                      <h4 className="font-bold text-white text-sm leading-none">{testimonials[testimonialIndex].name}</h4>
-                      <span className="text-xs text-slate-500 mt-1 block">{testimonials[testimonialIndex].role}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Carousel Controls */}
-                <div className="flex items-center justify-center space-x-3 pt-4">
-                  <button 
-                    onClick={handlePrevTestimonial}
-                    className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-white transition-all"
-                  >
-                    &larr;
-                  </button>
-                  <span className="text-xs text-slate-500 font-medium">
-                    {testimonialIndex + 1} / {testimonials.length}
-                  </span>
-                  <button 
-                    onClick={handleNextTestimonial}
-                    className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-white transition-all"
-                  >
-                    &rarr;
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Interactive FAQ Accordion */}
-            <div className="max-w-4xl mx-auto space-y-6">
-              <h2 className="text-2xl md:text-3xl font-extrabold text-white text-center">Frequently Asked Questions</h2>
-              <div className="space-y-4">
-                {[
-                  {
-                    q: "How does the AI grading engine evaluate my answers?",
-                    a: "By utilizing advanced semantic analysis coupled with customized criteria metrics, MockVerse reads your written lines, checks against standard solutions, maps keywords, and returns an itemized scorecard."
-                  },
-                  {
-                    q: "Can I generate papers targeting specific boards and subjects?",
-                    a: "Absolutely! The generator panel allows you to lock in curriculum board constraints (CBSE, ICSE, etc.), classes, difficulty profiles, and selective lists of chapters."
-                  },
-                  {
-                    q: "Is there data persistence for my history?",
-                    a: "Yes. All generated exam structures, solutions, and evaluated scorecards are securely persistent inside our backend MongoDB database for study retrospectives."
-                  }
-                ].map((faq, idx) => (
-                  <div key={idx} className="glass-card rounded-xl border border-white/5 overflow-hidden transition-all duration-300">
-                    <button
-                      onClick={() => toggleFaq(idx)}
-                      className="w-full flex items-center justify-between p-6 text-left text-white font-semibold focus:outline-none"
-                    >
-                      <span>{faq.q}</span>
-                      <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${faqOpen[idx] ? "rotate-180 text-pink-400" : ""}`} />
-                    </button>
-                    {faqOpen[idx] && (
-                      <div className="px-6 pb-6 text-sm text-slate-400 leading-relaxed border-t border-white/5 pt-4 animate-fade-in">
-                        {faq.a}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <HomeTab
+            setActiveTab={setActiveTab}
+            testimonialIndex={testimonialIndex}
+            setTestimonialIndex={setTestimonialIndex}
+            faqOpen={faqOpen}
+            toggleFaq={toggleFaq}
+          />
         );
 
       case 'generate':
         return (
           <div className="glass-panel rounded-3xl p-6 md:p-8 space-y-6 animate-fade-in max-w-4xl mx-auto">
             <div className="flex items-center space-x-3 border-b border-white/5 pb-4 mb-4">
-              <Sparkles className="w-6 h-6 text-indigo-400" />
+              <span className="text-2xl text-indigo-400 font-bold">★</span>
               <h2 className="text-2xl font-bold text-white">Create Custom Exam Sheet</h2>
             </div>
             <MemoizedPaperForm onSubmit={handleGeneratePaper} loading={loading} />
@@ -705,8 +88,8 @@ const Index = () => {
         return (
           <div className="glass-panel rounded-3xl p-6 md:p-8 animate-fade-in max-w-5xl mx-auto">
             <div className="flex items-center space-x-3 border-b border-white/5 pb-4 mb-4">
-              <PenTool className="w-6 h-6 text-pink-400" />
-              <h2 className="text-2xl font-bold text-white">Solve & Answering Tab</h2>
+              <span className="text-2xl text-pink-400 font-bold">✎</span>
+              <h2 className="text-2xl font-bold text-white">Paper & Solutions</h2>
             </div>
             <MemoizedAnswerTab
               currentPaper={currentPaper}
@@ -718,12 +101,12 @@ const Index = () => {
             />
           </div>
         );
-      
+
       case 'evaluate':
         return (
           <div className="glass-panel rounded-3xl p-6 md:p-8 animate-fade-in max-w-4xl mx-auto">
             <div className="flex items-center space-x-3 border-b border-white/5 pb-4 mb-4">
-              <BarChart2 className="w-6 h-6 text-purple-400" />
+              <span className="text-2xl text-purple-400 font-bold">📊</span>
               <h2 className="text-2xl font-bold text-white">Smart Answer Evaluation</h2>
             </div>
             <MemoizedEvaluateTab
@@ -737,7 +120,7 @@ const Index = () => {
         return (
           <div className="glass-panel rounded-3xl p-6 md:p-8 animate-fade-in max-w-4xl mx-auto">
             <div className="flex items-center space-x-3 border-b border-white/5 pb-4 mb-4">
-              <BookOpen className="w-6 h-6 text-blue-400" />
+              <span className="text-2xl text-blue-400 font-bold">📖</span>
               <h2 className="text-2xl font-bold text-white">Study Library & Resources</h2>
             </div>
             <MemoizedResourcesTab />
@@ -746,332 +129,31 @@ const Index = () => {
       
       case 'history':
         return (
-          <div className="glass-panel rounded-3xl p-6 md:p-8 animate-fade-in max-w-4xl mx-auto">
-            <div className="flex items-center space-x-3 border-b border-white/5 pb-4 mb-4">
-              <History className="w-6 h-6 text-orange-400" />
-              <h2 className="text-2xl font-bold text-white">Relational Paper History</h2>
-            </div>
-            {paperHistory.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-                <p className="text-slate-400">No question papers generated yet. Generate one first!</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {paperHistory.map((paper) => (
-                  <div
-                    key={paper.id}
-                    className="glass-card p-5 rounded-xl border border-white/5 cursor-pointer hover:bg-slate-800/40 hover:border-indigo-500/20 transition-all hover:scale-[1.01] flex items-center justify-between"
-                    onClick={() => handleSelectPaper(paper)}
-                  >
-                    <div>
-                      <h3 className="font-bold text-white text-base">{paper.subject} - Class {paper.class}</h3>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {paper.chapters.join(', ')} • {paper.totalMarks} marks • {paper.difficulty}
-                      </p>
-                      <span className="text-[10px] text-slate-500 mt-2 block">
-                        Generated: {new Date(paper.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-3 shrink-0">
-                      <button
-                        onClick={(e) => handleDeletePaper(e, paper.id)}
-                        className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500 hover:text-white text-red-400 transition-all"
-                        title="Delete Question Paper"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <ArrowRight className="w-5 h-5 text-indigo-400" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <HistoryTab
+            paperHistory={paperHistory}
+            handleSelectPaper={handleSelectPaper}
+            handleDeletePaper={handleDeletePaper}
+          />
         );
 
-      case 'profile': {
-        if (!user) {
-          return (
-            <div className="glass-panel rounded-3xl p-6 md:p-8 animate-fade-in max-w-4xl mx-auto">
-              <div className="flex items-center space-x-3 border-b border-white/5 pb-4 mb-6">
-                <UserIcon className="w-6 h-6 text-indigo-400" />
-                <h2 className="text-2xl font-bold text-white">Sign In to Your Account</h2>
-              </div>
-              <Auth isInline={true} />
-            </div>
-          );
-        }
-        const savedResources = JSON.parse(localStorage.getItem('resources') || '[]');
-        const totalPapers = paperHistory.length;
-        const totalEvaluations = paperHistory.filter(p => p.evaluationResult).length;
-        const totalSolutions = paperHistory.filter(p => p.solutions).length;
-
-        // Custom config handlers
-        const handleSaveSettings = () => {
-          toast({
-            title: "Preferences Synchronized!",
-            description: "System parameters and model anchors have been updated successfully.",
-          });
-        };
-
+      case 'profile':
         return (
-          <div className="animate-fade-in max-w-4xl mx-auto space-y-8 pb-12 stagger-children">
-            {/* Header Identity Glass Panel */}
-            <div className="glass-panel rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start justify-between gap-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-              
-              <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6 text-center sm:text-left">
-                <div className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-0.5 shadow-xl shadow-indigo-500/20">
-                  <div className="w-full h-full bg-[#0B0F19] rounded-2xl flex items-center justify-center text-white font-extrabold text-3xl">
-                    {user?.name ? user.name.substring(0,2).toUpperCase() : "ST"}
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-center sm:justify-start space-x-2">
-                    <h2 className="text-2xl font-extrabold text-white tracking-tight">{user?.name || "Student User"}</h2>
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-bold tracking-wider uppercase">Pro</span>
-                  </div>
-                  <p className="text-sm text-slate-400 mt-1">{user?.email}</p>
-                  <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3.5">
-                    <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-extrabold uppercase tracking-wide">MockVerse Gold Member</span>
-                    <span className="px-2.5 py-1 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-400 text-[10px] font-extrabold uppercase tracking-wide">AI Explorer</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col space-y-3 w-full md:w-auto">
-                <div className="text-xs text-slate-500 text-center md:text-right">
-                  Account Status: <span className="text-emerald-400 font-bold">Active</span>
-                </div>
-                <button
-                  onClick={logout}
-                  className="px-5 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white text-xs font-bold rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg shadow-red-500/5"
-                >
-                  <span>Sign Out Securely</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Account Progress Dashboard */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
-              <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between border-white/5 relative group hover:border-indigo-500/30 transition-all duration-300">
-                <span className="text-xs text-slate-400 font-semibold tracking-wide">Generated Papers</span>
-                <span className="text-3xl font-extrabold text-white mt-4">{totalPapers}</span>
-                <div className="absolute top-4 right-4 p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                  <Zap className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between border-white/5 relative group hover:border-pink-500/30 transition-all duration-300">
-                <span className="text-xs text-slate-400 font-semibold tracking-wide">Saved Resources</span>
-                <span className="text-3xl font-extrabold text-white mt-4">{savedResources.length}</span>
-                <div className="absolute top-4 right-4 p-1.5 rounded-lg bg-pink-500/10 text-pink-400">
-                  <FileText className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between border-white/5 relative group hover:border-purple-500/30 transition-all duration-300">
-                <span className="text-xs text-slate-400 font-semibold tracking-wide">Evaluations Run</span>
-                <span className="text-3xl font-extrabold text-white mt-4">{totalEvaluations}</span>
-                <div className="absolute top-4 right-4 p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
-                  <Award className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between border-white/5 relative group hover:border-emerald-500/30 transition-all duration-300">
-                <span className="text-xs text-slate-400 font-semibold tracking-wide">Solutions Unlocked</span>
-                <span className="text-3xl font-extrabold text-white mt-4">{totalSolutions}</span>
-                <div className="absolute top-4 right-4 p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-
-            {/* ═══ API Key Management Section ═══ */}
-            <div className="glass-panel rounded-3xl p-6 md:p-8 relative overflow-hidden border border-white/5">
-              <div className="absolute -top-16 -right-16 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-              
-              <div className="flex items-center space-x-2 border-b border-white/5 pb-4 mb-6">
-                <Key className="w-5 h-5 text-amber-400" />
-                <h3 className="font-extrabold text-white text-lg">Gemini API Key Management</h3>
-              </div>
-
-              {/* Status indicator */}
-              <div className={`flex items-center space-x-3 p-4 rounded-xl border mb-6 transition-all ${
-                hasStoredApiKey
-                  ? 'bg-emerald-500/5 border-emerald-500/20'
-                  : 'bg-slate-500/5 border-white/5'
-              }`}>
-                <Shield className={`w-5 h-5 shrink-0 ${hasStoredApiKey ? 'text-emerald-400' : 'text-slate-500'}`} />
-                <div className="flex-1">
-                  <h4 className={`text-sm font-bold ${hasStoredApiKey ? 'text-emerald-400' : 'text-slate-400'}`}>
-                    {hasStoredApiKey ? 'Personal API Key Active' : 'Using Server Default Key'}
-                  </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {hasStoredApiKey
-                      ? `Your encrypted key: ${apiKeyMasked || '••••••••'}`
-                      : 'Add your own Gemini API key for dedicated quota and limits.'}
-                  </p>
-                </div>
-                {hasStoredApiKey && (
-                  <button
-                    onClick={handleDeleteApiKey}
-                    disabled={apiKeyLoading}
-                    className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white text-[10px] font-bold rounded-lg transition-all disabled:opacity-50"
-                  >
-                    {apiKeyLoading ? 'Removing...' : 'Remove Key'}
-                  </button>
-                )}
-              </div>
-
-              {/* Add/Update API Key form */}
-              {!showApiKeyInput && !hasStoredApiKey && (
-                <button
-                  onClick={() => setShowApiKeyInput(true)}
-                  className="w-full py-3.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 font-bold text-sm rounded-xl transition-all duration-300 flex items-center justify-center space-x-2"
-                >
-                  <Key className="w-4 h-4" />
-                  <span>Add Your Gemini API Key</span>
-                </button>
-              )}
-
-              {(showApiKeyInput || hasStoredApiKey) && (
-                <div className="space-y-4 animate-fade-in">
-                  <div>
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-2">
-                      {hasStoredApiKey ? 'Update API Key' : 'Enter Gemini API Key'}
-                    </label>
-                    <div className="flex space-x-3">
-                      <input
-                        type="password"
-                        value={apiKeyInput}
-                        onChange={(e) => setApiKeyInput(e.target.value)}
-                        placeholder={hasStoredApiKey ? 'Enter new key to update...' : 'AIzaSy...'}
-                        className="flex-1 h-11 px-4 rounded-xl border border-white/10 text-white placeholder-slate-500 bg-[#080C16] text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
-                      />
-                      <button
-                        onClick={handleSaveApiKey}
-                        disabled={apiKeyLoading || !apiKeyInput.trim()}
-                        className="px-6 h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20 flex items-center space-x-2"
-                      >
-                        <Shield className="w-3.5 h-3.5" />
-                        <span>{apiKeyLoading ? 'Saving...' : 'Save Key'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Help text */}
-                  <div className="flex items-start space-x-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                    <AlertTriangle className="w-4 h-4 text-amber-400/60 shrink-0 mt-0.5" />
-                    <div className="text-[11px] text-slate-500 space-y-1">
-                      <p>Your key is <span className="text-amber-400/80 font-semibold">AES-256 encrypted</span> before storage. It's never exposed in plain text.</p>
-                      <p>Get a free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline inline-flex items-center space-x-1"><span>Google AI Studio</span><ExternalLink className="w-3 h-3" /></a></p>
-                    </div>
-                  </div>
-
-                  {!hasStoredApiKey && showApiKeyInput && (
-                    <button
-                      onClick={() => { setShowApiKeyInput(false); setApiKeyInput(''); }}
-                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Split layout for achievements and integrated settings */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              
-              {/* Left Column: AI configurations & Options */}
-              <div className="glass-panel p-6 rounded-3xl border-white/5 md:col-span-7 space-y-6">
-                <div className="flex items-center space-x-2 border-b border-white/5 pb-3">
-                  <SettingsIcon className="w-4 h-4 text-pink-400" />
-                  <h3 className="font-extrabold text-white text-base">Model & Prompt Optimization</h3>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">AI Model Anchor</label>
-                      <select className="w-full h-10 px-3 rounded-xl bg-[#080C16] border border-white/10 text-white text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                        <option>Gemini 1.5 Pro (Recommended)</option>
-                        <option>Gemini 1.5 Flash (Performance)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Temperature Profile</label>
-                      <select className="w-full h-10 px-3 rounded-xl bg-[#080C16] border border-white/10 text-white text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                        <option>Balanced Precision (0.7 - Default)</option>
-                        <option>Strict Verification (0.3 - Focused)</option>
-                        <option>Creative Exploration (0.9 - Diverse)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Standard CBSE Template Prompting</label>
-                    <select className="w-full h-10 px-3 rounded-xl bg-[#080C16] border border-white/10 text-white text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                      <option>Default Section-wise Distribution (SAQ, MCQ, LAQ)</option>
-                      <option>Multiple Choice Focused</option>
-                      <option>Written Theoretical Essays Focused</option>
-                    </select>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-between text-xs">
-                    <div>
-                      <h5 className="font-bold text-white">Push Email Reports</h5>
-                      <p className="text-[11px] text-slate-500">Send graded sheets automatically to educators.</p>
-                    </div>
-                    <input type="checkbox" className="w-4 h-4 rounded text-indigo-600 bg-black border-slate-700 focus:ring-0" defaultChecked />
-                  </div>
-
-                  <button
-                    onClick={handleSaveSettings}
-                    className="w-full mt-2 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white text-xs font-bold rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/20"
-                  >
-                    Save Preferences
-                  </button>
-                </div>
-              </div>
-
-              {/* Right Column: Achievements Milestone Track */}
-              <div className="glass-panel p-6 rounded-3xl border-white/5 md:col-span-5 space-y-6">
-                <div className="flex items-center space-x-2 border-b border-white/5 pb-3">
-                  <Award className="w-4 h-4 text-indigo-400" />
-                  <h3 className="font-extrabold text-white text-base">Progress Achievements</h3>
-                </div>
-
-                <div className="space-y-4">
-                  <div className={`flex items-start space-x-3 p-3 rounded-xl border transition-all duration-300 ${totalPapers > 0 ? 'bg-indigo-500/5 border-indigo-500/20 text-white' : 'bg-white/5 border-white/5 opacity-50'}`}>
-                    <CheckCircle2 className={`w-5 h-5 shrink-0 mt-0.5 ${totalPapers > 0 ? 'text-emerald-400' : 'text-slate-500'}`} />
-                    <div>
-                      <h4 className="font-bold text-xs">First Milestone Generator</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Generate your first customized AI exam sheet.</p>
-                    </div>
-                  </div>
-
-                  <div className={`flex items-start space-x-3 p-3 rounded-xl border transition-all duration-300 ${savedResources.length > 0 ? 'bg-indigo-500/5 border-indigo-500/20 text-white' : 'bg-white/5 border-white/5 opacity-50'}`}>
-                    <CheckCircle2 className={`w-5 h-5 shrink-0 mt-0.5 ${savedResources.length > 0 ? 'text-emerald-400' : 'text-slate-500'}`} />
-                    <div>
-                      <h4 className="font-bold text-xs">Library Builder</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Save at least 1 study or lecture bookmark.</p>
-                    </div>
-                  </div>
-
-                  <div className={`flex items-start space-x-3 p-3 rounded-xl border transition-all duration-300 ${totalEvaluations > 0 ? 'bg-indigo-500/5 border-indigo-500/20 text-white' : 'bg-white/5 border-white/5 opacity-50'}`}>
-                    <CheckCircle2 className={`w-5 h-5 shrink-0 mt-0.5 ${totalEvaluations > 0 ? 'text-emerald-400' : 'text-slate-500'}`} />
-                    <div>
-                      <h4 className="font-bold text-xs">AI Evaluation Pioneer</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Obtain line-by-line grading scorecards.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
+          <ProfileTab
+            user={user}
+            logout={logout}
+            paperHistory={paperHistory}
+            hasStoredApiKey={hasStoredApiKey}
+            apiKeyMasked={apiKeyMasked}
+            apiKeyInput={apiKeyInput}
+            setApiKeyInput={setApiKeyInput}
+            apiKeyLoading={apiKeyLoading}
+            showApiKeyInput={showApiKeyInput}
+            setShowApiKeyInput={setShowApiKeyInput}
+            handleSaveApiKey={handleSaveApiKey}
+            handleDeleteApiKey={handleDeleteApiKey}
+            handleSaveSettings={handleSaveSettings}
+          />
         );
-      }
       
       default:
         return null;
@@ -1111,95 +193,16 @@ const Index = () => {
         <MemoizedFooter onTabChange={setActiveTab} />
       </div>
 
-      {/* ═══ API KEY QUOTA EXHAUSTED POP-UP MODAL ═══ */}
-      {showQuotaModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-modal-overlay" onClick={() => setShowQuotaModal(false)}>
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-          
-          {/* Modal Panel */}
-          <div
-            className="relative w-full max-w-lg glass-panel rounded-3xl border border-red-500/20 shadow-2xl shadow-red-500/10 overflow-hidden animate-modal-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Decorative glow */}
-            <div className="absolute -top-20 -right-20 w-60 h-60 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-amber-500/8 rounded-full blur-3xl pointer-events-none" />
-            
-            {/* Header */}
-            <div className="relative p-6 pb-4 border-b border-white/5">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/25 flex items-center justify-center animate-alert-pulse">
-                  <AlertTriangle className="w-6 h-6 text-red-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-extrabold text-white">API Key Limit Reached</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Action required to continue</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Body */}
-            <div className="relative p-6 space-y-5">
-              <p className="text-sm text-slate-300 leading-relaxed">
-                {quotaModalMessage}
-              </p>
-              
-              {/* Quick API Key Input */}
-              <div className="space-y-3">
-                <label className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider block">
-                  Enter New Gemini API Key
-                </label>
-                <div className="flex space-x-3">
-                  <input
-                    type="password"
-                    value={quotaModalKeyInput}
-                    onChange={(e) => setQuotaModalKeyInput(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="flex-1 h-12 px-4 rounded-xl border border-white/10 text-white placeholder-slate-500 bg-[#080C16] text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
-                    autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && handleQuotaModalSave()}
-                  />
-                  <button
-                    onClick={handleQuotaModalSave}
-                    disabled={apiKeyLoading || !quotaModalKeyInput.trim()}
-                    className="px-6 h-12 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-sm rounded-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20 flex items-center space-x-2 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Shield className="w-4 h-4" />
-                    <span>{apiKeyLoading ? 'Saving...' : 'Save & Continue'}</span>
-                  </button>
-                </div>
-              </div>
-              
-              {/* Help links */}
-              <div className="flex items-start space-x-2 p-3.5 rounded-xl bg-white/[0.02] border border-white/5">
-                <Key className="w-4 h-4 text-amber-400/60 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-slate-500 space-y-1.5">
-                  <p>Your key is <span className="text-amber-400/80 font-semibold">AES-256 encrypted</span> before storage.</p>
-                  <p>Get a free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline inline-flex items-center space-x-1"><span>Google AI Studio</span><ExternalLink className="w-3 h-3" /></a></p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Footer Actions */}
-            <div className="relative p-6 pt-4 border-t border-white/5 flex items-center justify-between">
-              <button
-                onClick={() => setShowQuotaModal(false)}
-                className="px-5 py-2.5 text-sm font-semibold text-slate-400 hover:text-white rounded-xl hover:bg-white/5 transition-all"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => { setShowQuotaModal(false); setActiveTab('profile'); }}
-                className="px-5 py-2.5 text-sm font-semibold text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl transition-all flex items-center space-x-2"
-              >
-                <SettingsIcon className="w-3.5 h-3.5" />
-                <span>Go to Profile Settings</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <QuotaModal
+        showQuotaModal={showQuotaModal}
+        setShowQuotaModal={setShowQuotaModal}
+        quotaModalMessage={quotaModalMessage}
+        quotaModalKeyInput={quotaModalKeyInput}
+        setQuotaModalKeyInput={setQuotaModalKeyInput}
+        handleQuotaModalSave={handleQuotaModalSave}
+        apiKeyLoading={apiKeyLoading}
+        setActiveTab={setActiveTab}
+      />
     </>
   );
 };

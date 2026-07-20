@@ -1,12 +1,25 @@
 import 'dotenv/config'; // Load environment variables first (hoisted)
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { generalLimiter, authLimiter, aiLimiter } from './middleware/rateLimit.js';
+
+// Environment Variables Startup Validation
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction && !process.env.JWT_SECRET) {
+  console.warn('⚠️ WARNING: JWT_SECRET environment variable is not defined! Using default secret in production is unsafe.');
+}
+if (!process.env.MONGODB_URI) {
+  console.warn('⚠️ WARNING: MONGODB_URI is not defined in environment variables. Falling back to local MongoDB connection.');
+}
+if (!process.env.GEMINI_API_KEY) {
+  console.warn('ℹ️ INFO: GEMINI_API_KEY is not defined on server. Users must supply custom API key in settings.');
+}
 
 // Connect Database
 import connectDB from './config/db.js';
@@ -16,8 +29,15 @@ connectDB();
 // Route modules
 import authRoutes from './routes/authRoutes.js';
 import paperRoutes, { chatRouter } from './routes/paperRoutes.js';
+import resourceRoutes from './routes/resourceRoutes.js';
 
 const app = express();
+
+// Trust first proxy (required for Render / Vercel rate limiting and secure headers)
+app.set('trust proxy', 1);
+
+// Gzip response compression
+app.use(compression());
 
 // ─── Security Middleware ──────────────────────────────────────────────────────
 
@@ -30,7 +50,7 @@ app.use(helmet({
 // ─── Request Logging ──────────────────────────────────────────────────────────
 
 // Morgan — HTTP request logger
-if (process.env.NODE_ENV === 'production') {
+if (isProduction) {
   app.use(morgan('combined'));
 } else {
   app.use(morgan('dev'));
@@ -38,18 +58,30 @@ if (process.env.NODE_ENV === 'production') {
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 
-const allowedOrigins = [
+const baseAllowedOrigins = [
   'http://localhost:8080',
   'http://127.0.0.1:8080',
   'http://localhost:5173',
   'http://localhost:3000',
-  process.env.FRONTEND_URL,
-].filter(Boolean);
+];
+
+if (process.env.FRONTEND_URL) {
+  // Support comma-separated URLs and strip trailing slashes
+  const envOrigins = process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, ''));
+  baseAllowedOrigins.push(...envOrigins);
+}
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, server-to-server, health checks)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    if (!origin) return callback(null, true);
+    
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    const isAllowed = baseAllowedOrigins.includes(normalizedOrigin) || 
+                      normalizedOrigin.endsWith('.vercel.app') || 
+                      !isProduction;
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -96,6 +128,9 @@ app.use('/api/papers', generalLimiter, paperRoutes);
 
 // Chat route (AI rate limiting)
 app.use('/api/chat', aiLimiter, chatRouter);
+
+// Resource Manager routes
+app.use('/api/resources', generalLimiter, resourceRoutes);
 
 // ─── 404 Handler for Unknown API Routes ───────────────────────────────────────
 

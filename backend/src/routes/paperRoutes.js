@@ -1,13 +1,10 @@
 import express from 'express';
-import {
-  generatePaper,
-  getPapers,
-  getPaperById,
-  deletePaper,
-  generateSolutions,
-  evaluateAnswers,
-  chatbot,
-} from '../controllers/paperController.js';
+import { generatePaper } from '../controllers/generatePaperController.js';
+import { generateSolutions } from '../controllers/solutionController.js';
+import { chatbot } from '../controllers/chatController.js';
+import { getPapers } from '../controllers/historyController.js';
+import { getPaperById, deletePaper } from '../controllers/paperCrudController.js';
+import { evaluateAnswers } from '../controllers/evaluatePaperController.js';
 import { protect, optionalProtect } from '../middleware/auth.js';
 import { aiLimiter } from '../middleware/rateLimit.js';
 

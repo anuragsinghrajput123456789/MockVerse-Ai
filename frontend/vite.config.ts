@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => ({
   ].filter(Boolean),
   resolve: {
     alias: {
+      "@/components": path.resolve(__dirname, "./src/shared/components"),
+      "@/hooks": path.resolve(__dirname, "./src/shared/hooks"),
       "@": path.resolve(__dirname, "./src"),
     },
   },

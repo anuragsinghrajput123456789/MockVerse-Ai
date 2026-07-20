@@ -23,6 +23,8 @@
 
     "baseUrl": ".",
     "paths": {
+      "@/components/*": ["./src/shared/components/*"],
+      "@/hooks/*": ["./src/shared/hooks/*"],
       "@/*": ["./src/*"]
     }
   },

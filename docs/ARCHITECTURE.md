@@ -70,17 +70,23 @@ graph TD
         C["Local State (Active Paper, Solving Buffers)"]
     end
 
-    subgraph ViewTabs ["Component Dashboard Tree"]
-        D["CreateTab.tsx"]
-        E["AnswerTab.tsx"]
-        F["EvaluateTab.tsx"]
-        G["ResourcesTab.tsx"]
-        H["Chatbot (Floating Chat Context)"]
+    subgraph FeatureModules ["Feature Dashboard Modules"]
+        D["PaperForm.tsx (Smart AI Exam Builder Wizard)"]
+        D1["ExamPresetsHeader.tsx (1-Click Presets)"]
+        D2["LiveExamSummary.tsx (Sticky Live Spec)"]
+        D3["BulkChapterModal.tsx (Batch Chapters)"]
+        E["AnswerTab.tsx (Dual-Column Workspace)"]
+        F["EvaluateTab.tsx (AI Scorecards & Grader)"]
+        G["ResourcesTab.tsx (Modular CRUD Library)"]
+        H["Chatbot (Floating AI Tutor)"]
     end
 
     A --> B
     A --> C
     C --> D
+    D --> D1
+    D --> D2
+    D --> D3
     C --> E
     C --> F
     C --> G

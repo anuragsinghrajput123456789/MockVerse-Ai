@@ -25,20 +25,21 @@ This project is built using a modern **MongoDB, Express, React, and Node.js (MER
 
 ## 🚀 Key Features & Architectural Enhancements
 
+*   **🪄 Smart AI Exam Builder**: Re-engineered the question paper generator into a progressive 5-step guided wizard (*Target* $\rightarrow$ *Subject* $\rightarrow$ *Chapters* $\rightarrow$ *Settings* $\rightarrow$ *AI Tags*) featuring 1-click Preset Cards (School, Competitive, College, Custom), Searchable Subject Autocomplete, Bulk Chapter Import, Interactive AI Instruction Tags (*HOTS*, *Conceptual Focus*, *Strict NCERT*, *Tricky Numericals*, *Olympiad Level*), and a Sticky Live Exam Summary sidebar with real-time AI readiness scoring.
 *   **⚡ Two-Column Interactive Workspace**: Re-architected the exam workspace into a responsive side-by-side layout. Students read the scrollable question paper on the left while drafting answers in real-time on the right, eliminating vertical scroll fatigue.
 *   **🧩 Heuristic Question Parser**: Dynamically parses raw AI Markdown question papers using regular expressions, generating discrete answer fields pre-loaded with the exact question text.
 *   **🚀 Production-Grade PDF Pagination Exporter**: Optimized A4 PDF compilation with a pagination slicing algorithm that handles tall elements without page overflows. Fixed mobile viewport clipping issues via fixed positioning (`left: -9999px`), synchronized image loading pre-captures, CORS support, and cross-platform serif font fallbacks (`Times New Roman, Times, Georgia, serif`).
 *   **🛡️ Fail-Safe Rendering Boundaries**: Wrapped async PDF compilations inside a 12-second `Promise.race` timeout and integrated 1-second MathJax typeset compilation races. If drawing ever hangs, the system automatically rejects, displays warning toasts, unmounts layout variables, and restores browser responsiveness.
-*   **⚡ 99% Entry Bundle Code-Splitting**: Code-split large dependencies (`jspdf`, `html2canvas`, `react-markdown`, `lucide-react`) and lazy-loaded the main workspace page. Reduced the initial JS entry script size from **1.5 MB to 16.57 kB** for instant startup speeds.
+*   **⚡ 99% Entry Bundle Code-Splitting**: Code-split large dependencies (`jspdf`, `html2canvas`, `react-markdown`, `lucide-react`) and lazy-loaded feature modules (`frontend/src/features/papers/`, `frontend/src/features/resources/`, `frontend/src/features/auth/`).
 *   **🔒 Hardened Security Auditing**: Implemented string-casting checks on request body parameters to immunize all Mongoose queries against MongoDB injection attacks. Protected shared syllabus imports and dynamic HTML file exports from XSS injections using `DOMPurify` filters.
 *   **💬 Context-Aware AI Chatbot with Memory**: A companion study bot that remembers the context of the active question paper and maintains multi-turn conversation history (last 10 messages) using structured backend prompts and ReactMarkdown responses.
-*   **🛡️ Resilience retry loops**: Configured 3x retry loops with exponential backoff on the backend to automatically recover from transient Gemini API rate limit (429) or 5xx server errors. Enforced JWT secret presence checks in production startup.
+*   **🛡️ Resilience Retry Loops**: Configured 3x retry loops with exponential backoff on the backend to automatically recover from transient Gemini API rate limit (429) or 5xx server errors. Enforced JWT secret presence checks in production startup.
 *   **🏷️ Dynamic PDF Header Stamping**: Dynamically renders Class, Board, Marks, and Difficulty parameters in the print PDF layout header.
-*   **🛑 Strict Form Field Validation**: Form fields (Subject, Class, Board, Chapters, Total Marks) inside the Generate Panel feature visual highlights, red outline alerts, and validation toasts to prevent silent submit errors.
-*   **🔐 Advanced JWT Authentication**: Secure user registration (signup) and login. Passwords are encrypted on the server with `bcryptjs`. Session states are isolated per-user.
-*   **📚 CRUD Study Library**: Add study notes, textbooks, and tutorial resources. Modify details or purge records at any time.
+*   **🛑 Strict Form Field Validation**: Form fields inside the Smart AI Exam Builder feature visual highlights, red outline alerts, and validation toasts to prevent silent submit errors.
+*   **🔐 Advanced JWT Authentication**: Secure user registration (signup) and login with encrypted passwords (`bcryptjs`). Session states are isolated per-user.
+*   **📚 Modular CRUD Resources Library**: Re-architected resource collections (`ResourceList`, `ResourceForm`, `CollectionHeader`, `SheetSelector`). Add study notes, textbooks, and tutorial resources with full single-responsibility isolation.
 *   **🔗 Base64 Quick Sharing**: Click to copy an encrypted Base64 URL for any library item, allowing quick sharing. Visiting users receive an interactive import overlay popup.
-*   **📄 Clickable HTML Export**: Click the download action to compile your resource into a beautiful standalone single-file HTML sheet containing active clickable links.
+*   **📄 Clickable HTML & PDF Export**: Click the download action to compile your resource into a beautiful standalone single-file HTML or PDF sheet containing active clickable links.
 *   **📜 Persistent Exam History**: All question papers, solution sheets, and grading records are stored in a MongoDB database so users can view their academic journey at any time.
 
 ---
