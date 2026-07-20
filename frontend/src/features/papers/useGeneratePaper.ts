@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useToast } from '../../shared/hooks/use-toast';
 import { generateQuestionPaper } from '../../shared/services/paperService';
 import { QuestionPaper, PaperFormData } from '../../shared/types';
@@ -11,8 +11,15 @@ export function useGeneratePaper(
   handleQuotaError: (error: any) => boolean
 ) {
   const { toast } = useToast();
+  const isSubmittingRef = useRef(false);
 
   const handleGeneratePaper = useCallback(async (formData: PaperFormData) => {
+    if (isSubmittingRef.current) {
+      console.warn('[CLIENT_GUARD] Blocked duplicate paper generation request in flight.');
+      return;
+    }
+
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const newPaper = await generateQuestionPaper(formData);
@@ -41,6 +48,7 @@ export function useGeneratePaper(
         });
       }
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   }, [user, setPaperHistory, onSuccess, setLoading, handleQuotaError, toast]);

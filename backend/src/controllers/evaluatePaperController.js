@@ -25,7 +25,7 @@ export const evaluateAnswers = async (req, res) => {
 
     const prompt = buildEvaluateAnswersPrompt(paper.questions, req.body.answers);
 
-    const evaluationContent = await callGeminiWithFallback(prompt, req);
+    const evaluationContent = await callGeminiWithFallback(prompt, req, 'evaluate_answers');
 
     // Update database
     paper.evaluationResult = evaluationContent;

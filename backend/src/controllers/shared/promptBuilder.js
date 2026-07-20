@@ -1,5 +1,5 @@
 /**
- * Builds standard prompts for the Gemini model interactions.
+ * Builds compressed, optimized prompts for Gemini model interactions.
  */
 
 export const buildGeneratePaperPrompt = ({
@@ -14,59 +14,64 @@ export const buildGeneratePaperPrompt = ({
   customPatternDetails,
   instructions,
 }) => {
-  return `Generate a complete ${subject} question paper for class ${studentClass}.
+  return `Generate a complete ${subject} exam paper for Class/Grade: ${studentClass || 'N/A'}.
 
-Chapters: ${chapters.join(', ')}${topics ? `\nFocus topics: ${String(topics).substring(0, 2000)}` : ''}
-
-Total marks: ${totalMarks || 100}
+Target Exam/Board: ${board || 'Standard'}
+Total Marks: ${totalMarks || 100}
 Difficulty: ${difficulty || 'Medium'}
-Board: ${board || 'NCERT'}
-Pattern: ${pattern || 'Board-style'}${pattern === 'Custom' && customPatternDetails ? `\nCustom pattern: ${String(customPatternDetails).substring(0, 2000)}` : ''}${instructions ? `\nAdditional instructions: ${String(instructions).substring(0, 5000)}` : ''}
+Pattern: ${pattern || 'Board-style'}${pattern === 'Custom' && customPatternDetails ? ` (${String(customPatternDetails).substring(0, 1000)})` : ''}
+Chapters: ${chapters.join(', ')}${topics ? `\nFocus Topics: ${String(topics).substring(0, 1000)}` : ''}${instructions ? `\nSpecial Instructions: ${String(instructions).substring(0, 2000)}` : ''}
 
-Format the paper with:
-- Header with subject, class, time, and total marks
-- Clear section divisions
-- Proper question numbering
-- Mark allocation for each question
-- Instructions for students
-
-Generate ALL questions to meet the total marks. No placeholders or summaries. The paper must be complete and exam-ready. Use markdown formatting.`;
+Output Requirements:
+- Title Header (Subject, Class, Time Allowed, Total Marks)
+- Structured section divisions with question numbers & mark allocations
+- Complete exam-ready questions matching total marks without placeholders
+- Clean Markdown formatting`;
 };
 
 export const buildEvaluateAnswersPrompt = (questions, answers) => {
-  return `Evaluate the following answers for the given question paper and provide marks and detailed feedback. The answers are provided in a list where each element corresponds to a question.
+  const truncatedQuestions = String(questions).substring(0, 8000);
+  const formattedAnswers = answers
+    .map((ans, i) => `Q${i + 1}: ${String(ans).substring(0, 2000)}`)
+    .join('\n');
 
-Question Paper:
-${questions}
+  return `Evaluate student answers against the exam paper below.
 
-Answers:
-${answers.map((ans, i) => `Answer for Q${i + 1}: ${String(ans).substring(0, 10000)}`).join('\n')}
+Exam Paper:
+${truncatedQuestions}
 
-Please provide:
-1. A total score.
-2. Question-by-question feedback.
-3. An overall summary.
-Make it structured and easy to read.`;
+Student Answers:
+${formattedAnswers}
+
+Output Format:
+1. Total Score (Earned / Total)
+2. Itemized Question Feedback (Marks awarded + constructive hints)
+3. Summary & Strengths / Areas for Improvement`;
 };
 
 export const buildGenerateSolutionsPrompt = (questions) => {
-  return `Generate detailed solutions for the following question paper. Provide step-by-step solutions with explanations:
+  const truncatedQuestions = String(questions).substring(0, 10000);
 
-${questions}
+  return `Generate step-by-step worked solutions for the following exam paper:
 
-Format solutions with:
-- Question number references
-- Step-by-step working
-- Clear explanations
-- Final answers highlighted
-- Alternative methods where applicable`;
+${truncatedQuestions}
+
+Format:
+- Solution header for each Question Number
+- Step-by-step mathematical or logical working
+- Final answer highlighted in bold`;
 };
 
 export const buildChatbotPrompt = (contextPrompt, historyPrompt, message) => {
-  return `You are an AI educational assistant helping students with their studies. 
-${contextPrompt}
-Here is the previous conversation history:
-${historyPrompt}Student's current question: ${message}
- 
-Please provide a helpful, educational response that helps the student understand the concepts better. Be clear, concise, and encouraging.`;
+  const compressedContext = contextPrompt ? String(contextPrompt).substring(0, 4000) : '';
+  const compressedHistory = historyPrompt ? String(historyPrompt).substring(0, 2000) : '';
+
+  return `You are MockVerse AI, an encouraging academic study tutor.
+${compressedContext}
+${compressedHistory}
+Student Question: ${String(message).substring(0, 2000)}
+
+Response Guidelines:
+- Direct, clear, educational explanation
+- Use concise Markdown and step-by-step formatting`;
 };

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useToast } from '../../shared/hooks/use-toast';
 import { sendChatMessage } from '../../shared/services/chatService';
 
@@ -23,10 +23,12 @@ export function useChat(paperId?: string) {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const handleSendMessage = useCallback(async () => {
-    if (!inputMessage.trim() || isLoading) return;
+    if (!inputMessage.trim() || isLoading || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     const userMessage: Message = {
       id: Date.now().toString(),
       text: inputMessage,
@@ -40,8 +42,8 @@ export function useChat(paperId?: string) {
     setIsLoading(true);
 
     try {
-      // Map prior messages to send history
-      const historyPayload = messages.map(msg => ({
+      // Map prior messages to send history (last 6 messages max)
+      const historyPayload = messages.slice(-6).map(msg => ({
         text: msg.text,
         isUser: msg.isUser
       }));
@@ -64,6 +66,7 @@ export function useChat(paperId?: string) {
         variant: "destructive",
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
     }
   }, [inputMessage, isLoading, messages, paperId, toast]);

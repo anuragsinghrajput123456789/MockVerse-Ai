@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useToast } from '../../shared/hooks/use-toast';
 import { evaluateAnswers } from '../../shared/services/paperService';
 import { QuestionPaper } from '../../shared/types';
@@ -13,10 +13,12 @@ export function useEvaluation(
   handleQuotaError: (error: any) => boolean
 ) {
   const { toast } = useToast();
+  const isSubmittingRef = useRef(false);
 
   const handleSubmitAnswers = useCallback(async (answers: string[]) => {
-    if (!currentPaper) return;
+    if (!currentPaper || isSubmittingRef.current) return;
     
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const result = await evaluateAnswers(currentPaper.id, answers);
@@ -47,6 +49,7 @@ export function useEvaluation(
         });
       }
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   }, [currentPaper, user, setPaperHistory, setCurrentPaper, onSuccess, setLoading, handleQuotaError, toast]);

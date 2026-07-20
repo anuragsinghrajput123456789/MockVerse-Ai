@@ -44,7 +44,7 @@ export const generatePaper = async (req, res) => {
       instructions,
     });
 
-    const content = await callGeminiWithFallback(prompt, req);
+    const content = await callGeminiWithFallback(prompt, req, 'generate_paper');
 
     // Save to MongoDB database
     const paperInstance = await QuestionPaper.create({
@@ -62,10 +62,10 @@ export const generatePaper = async (req, res) => {
     });
 
     res.status(201).json(formatPaperResponse(paperInstance));
-  } catch (error) {
+  } catch (error: any) {
     // Handle Mongoose validation errors separately
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((e) => e.message);
+      const messages = Object.values(error.errors).map((e: any) => e.message);
       return res.status(400).json({ message: messages.join('. ') });
     }
     handleApiError(error, res, 'Generate paper error');

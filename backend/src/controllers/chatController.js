@@ -14,7 +14,7 @@ export const chatbot = async (req, res) => {
     }
 
     const { message, paperId, history } = req.body;
-    const sanitizedMessage = message.trim().substring(0, 10000);
+    const sanitizedMessage = message.trim().substring(0, 2000);
 
     let contextPrompt = '';
 
@@ -22,26 +22,27 @@ export const chatbot = async (req, res) => {
       try {
         const paper = await findPaperForRequest(paperId, req);
         if (paper) {
-          contextPrompt = `Here's the context of the current question paper:\n\nQuestion Paper:\n${paper.questions}${paper.solutions ? `\n\nSolutions:\n${paper.solutions}` : ''}\n\n`;
+          const truncQuestions = String(paper.questions).substring(0, 3000);
+          const truncSolutions = paper.solutions ? String(paper.solutions).substring(0, 1500) : '';
+          contextPrompt = `Active Question Paper Context:\n${truncQuestions}${truncSolutions ? `\n\nSolutions:\n${truncSolutions}` : ''}\n\n`;
         }
       } catch (paperError) {
         console.error('Error loading paper context for chatbot:', paperError);
-        // Continue without paper context
       }
     }
 
     let historyPrompt = '';
     if (history && Array.isArray(history) && history.length > 0) {
-      // Format chat history, limiting to last 10 messages to keep context size controlled
-      const recentHistory = history.slice(-10);
+      // Limit history to last 6 messages to prevent token bloat
+      const recentHistory = history.slice(-6);
       historyPrompt = recentHistory.map(msg => 
-        msg.isUser ? `Student: ${msg.text}` : `Tutor: ${msg.text}`
+        msg.isUser ? `Student: ${String(msg.text).substring(0, 500)}` : `Tutor: ${String(msg.text).substring(0, 500)}`
       ).join('\n') + '\n\n';
     }
 
     const prompt = buildChatbotPrompt(contextPrompt, historyPrompt, sanitizedMessage);
 
-    const chatResponse = await callGeminiWithFallback(prompt, req);
+    const chatResponse = await callGeminiWithFallback(prompt, req, 'chatbot');
 
     res.json({ response: chatResponse });
   } catch (error) {

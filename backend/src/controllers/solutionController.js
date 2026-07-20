@@ -25,7 +25,7 @@ export const generateSolutions = async (req, res) => {
 
     const prompt = buildGenerateSolutionsPrompt(paper.questions);
 
-    const solutionContent = await callGeminiWithFallback(prompt, req);
+    const solutionContent = await callGeminiWithFallback(prompt, req, 'generate_solutions');
 
     // Update database
     paper.solutions = solutionContent;
