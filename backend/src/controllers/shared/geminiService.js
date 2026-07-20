@@ -7,8 +7,8 @@ import { decryptApiKey } from '../authController.js';
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
 // ─── IN-MEMORY RESPONSE CACHE & IN-FLIGHT DEDUPLICATION ───────────────────────
-const aiResponseCache = new Map<string, { content: string; timestamp: number }>();
-const inFlightRequests = new Map<string, Promise<string>>();
+const aiResponseCache = new Map();
+const inFlightRequests = new Map();
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 Minutes
 const MAX_CACHE_ENTRIES = 100;
@@ -28,7 +28,7 @@ const cleanExpiredCache = () => {
 };
 
 // Helper to compute a hash for prompt + purpose + key signature
-const createRequestHash = (prompt: string, apiKey: string, purpose: string = 'general') => {
+const createRequestHash = (prompt, apiKey, purpose = 'general') => {
   const keySig = apiKey ? apiKey.trim().slice(-8) : 'nokey';
   return crypto.createHash('sha256').update(`${purpose}:${keySig}:${prompt.trim()}`).digest('hex');
 };
@@ -64,7 +64,7 @@ export const resolveApiKey = async (req) => {
 };
 
 // Helper to call Gemini API using the official @google/genai SDK
-export const callGemini = async (prompt: string, apiKey: string, purpose: string = 'general') => {
+export const callGemini = async (prompt, apiKey, purpose = 'general') => {
   if (!apiKey) {
     throw new Error('Gemini API key is not configured on server and no custom key provided.');
   }
@@ -91,7 +91,7 @@ export const callGemini = async (prompt: string, apiKey: string, purpose: string
   // 2. CHECK IN-FLIGHT DEDUPLICATION
   if (inFlightRequests.has(reqHash)) {
     console.log(`[GEMINI_API] [DEDUPLICATED] RequestId: ${requestId} | Purpose: ${purpose} | Joining active in-flight request...`);
-    return await inFlightRequests.get(reqHash)!;
+    return await inFlightRequests.get(reqHash);
   }
 
   // 3. EXECUTE GEMINI API REQUEST WITH DEDUPLICATION LOCK
@@ -134,7 +134,7 @@ export const callGemini = async (prompt: string, apiKey: string, purpose: string
 
       return cleanText;
 
-    } catch (error: any) {
+    } catch (error) {
       const duration = Date.now() - startTime;
       const errMsg = error.message || '';
       console.error(`[GEMINI_API] [ERROR] RequestId: ${requestId} | Purpose: ${purpose} | Duration: ${duration}ms | Error: ${errMsg}`);
@@ -147,7 +147,7 @@ export const callGemini = async (prompt: string, apiKey: string, purpose: string
         errMsg.includes('401') ||
         error.status === 401
       ) {
-        const apiError: any = new Error('API_KEY_INVALID: The provided Gemini API key is invalid or has been revoked. Please check and update your API key in the Profile settings.');
+        const apiError = new Error('API_KEY_INVALID: The provided Gemini API key is invalid or has been revoked. Please check and update your API key in the Profile settings.');
         apiError.statusCode = 400;
         apiError.errorCode = 'API_KEY_INVALID';
         throw apiError;
@@ -161,7 +161,7 @@ export const callGemini = async (prompt: string, apiKey: string, purpose: string
         errMsg.includes('429') ||
         error.status === 429
       ) {
-        const quotaError: any = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
+        const quotaError = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
         quotaError.statusCode = 429;
         quotaError.errorCode = 'API_KEY_QUOTA_EXHAUSTED';
         throw quotaError;
@@ -182,7 +182,7 @@ export const callGemini = async (prompt: string, apiKey: string, purpose: string
 };
 
 // Helper to call Gemini API with fallback retry and secondary API key attempts
-export const callGeminiWithFallback = async (prompt: string, req: any, purpose: string = 'general') => {
+export const callGeminiWithFallback = async (prompt, req, purpose = 'general') => {
   const { key, source } = await resolveApiKey(req);
   
   if (!key) {
@@ -191,12 +191,12 @@ export const callGeminiWithFallback = async (prompt: string, req: any, purpose: 
 
   try {
     return await callGemini(prompt, key, purpose);
-  } catch (firstError: any) {
+  } catch (firstError) {
     if (source !== 'server' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== key.trim()) {
       console.warn(`Primary key (${source}) failed: ${firstError.message}. Trying server default fallback key...`);
       try {
         return await callGemini(prompt, process.env.GEMINI_API_KEY, `${purpose}_fallback`);
-      } catch (fallbackError: any) {
+      } catch (fallbackError) {
         console.error('Server default fallback key also failed:', fallbackError.message);
         throw fallbackError;
       }
@@ -206,7 +206,7 @@ export const callGeminiWithFallback = async (prompt: string, req: any, purpose: 
 };
 
 // Helper to send quota-aware error responses
-export const handleApiError = (error: any, res: any, defaultMessage: string) => {
+export const handleApiError = (error, res, defaultMessage) => {
   console.error(defaultMessage + ':', error.message || error);
 
   if (error.message?.startsWith('API_KEY_QUOTA_EXHAUSTED')) {

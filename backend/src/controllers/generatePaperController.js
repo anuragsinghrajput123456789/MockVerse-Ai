@@ -62,10 +62,10 @@ export const generatePaper = async (req, res) => {
     });
 
     res.status(201).json(formatPaperResponse(paperInstance));
-  } catch (error: any) {
+  } catch (error) {
     // Handle Mongoose validation errors separately
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((e: any) => e.message);
+      const messages = Object.values(error.errors).map((e) => e.message);
       return res.status(400).json({ message: messages.join('. ') });
     }
     handleApiError(error, res, 'Generate paper error');

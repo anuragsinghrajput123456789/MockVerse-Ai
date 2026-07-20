@@ -44,7 +44,7 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full glass-panel shadow-lg shadow-black/20" style={{ transition: 'box-shadow 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+    <header className="sticky top-0 z-50 w-full bg-[#080C16] border-b border-white/10 shadow-xl shadow-black/50" style={{ transition: 'box-shadow 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           {/* Logo Section */}
@@ -73,12 +73,12 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                   onClick={() => handleTabClick(item.id)}
                   className={`relative flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-400 ${
                     isActive
-                      ? "text-white bg-white/[0.04]"
-                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                      ? "text-white bg-white/[0.08]"
+                      : "text-slate-300 hover:text-white hover:bg-white/10"
                   }`}
                   style={{ transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
                 >
-                  <IconComponent className={`w-4 h-4 transition-transform duration-300 ${isActive ? "scale-110 text-indigo-400" : "group-hover:scale-110"}`} />
+                  <IconComponent className={`w-4 h-4 transition-transform duration-300 ${isActive ? "scale-110 text-indigo-400" : "group-hover:scale-110 text-slate-400"}`} />
                   <span>{item.label}</span>
                   {isActive && (
                     <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full" />
@@ -115,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
             {/* Mobile Hamburger Button (Visible on screens smaller than lg) */}
             <button
               onClick={toggleMobileMenu}
-              className="lg:hidden p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 hover:text-white transition-all duration-300"
+              className="lg:hidden p-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 text-white transition-all duration-300"
               aria-label="Toggle Mobile Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -130,23 +130,32 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
           {/* Backdrop Mask - Prevents interaction with page content while menu is open */}
           <div 
             onClick={toggleMobileMenu}
-            className="lg:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm animate-modal-overlay" 
+            className="lg:hidden fixed inset-0 z-[90] bg-black/80 backdrop-blur-md animate-modal-overlay" 
           />
           
-          {/* Slide-out Side Drawer */}
-          <div className="lg:hidden fixed top-0 right-0 bottom-0 z-50 w-80 max-w-[85vw] bg-[#080C16] border-l border-white/10 p-6 pt-20 shadow-2xl flex flex-col justify-between animate-slide-in">
+          {/* Slide-out Side Drawer - Fully Opaque Solid Background */}
+          <div 
+            className="lg:hidden fixed top-0 right-0 bottom-0 z-[100] w-80 max-w-[85vw] bg-[#0A0F1D] border-l border-white/15 p-6 pt-6 shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-y-auto animate-slide-in"
+            style={{ backgroundColor: '#0A0F1D', opacity: 1 }}
+          >
             <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Navigation</h3>
+              <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-7 h-7 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <Cpu className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white tracking-tight uppercase">Navigation</h3>
+                </div>
                 <button 
                   onClick={toggleMobileMenu}
-                  className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white"
+                  className="p-2 rounded-xl bg-white/10 border border-white/15 text-slate-200 hover:text-white hover:bg-white/20 transition-all"
+                  aria-label="Close Menu"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {navItems.map((item) => {
                   const IconComponent = item.icon;
                   const isActive = activeTab === item.id;
@@ -154,30 +163,32 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                     <button
                       key={item.id}
                       onClick={() => handleTabClick(item.id)}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all border ${
+                      className={`w-full flex items-center space-x-3.5 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all border ${
                         isActive
-                          ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border-indigo-500/30 text-white shadow-lg shadow-indigo-500/5"
-                          : "text-slate-400 hover:text-white hover:bg-white/5 border-transparent"
+                          ? "bg-indigo-600/30 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                          : "bg-[#13192B] hover:bg-[#1C243B] border-white/10 text-slate-200 hover:text-white"
                       }`}
                     >
-                      <IconComponent className={`w-4 h-4 ${isActive ? "text-indigo-400" : "text-slate-400"}`} />
-                      <span>{item.label}</span>
+                      <div className={`p-1.5 rounded-lg ${isActive ? "bg-indigo-500/30 text-indigo-300" : "bg-white/5 text-slate-400"}`}>
+                        <IconComponent className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold">{item.label}</span>
                     </button>
                   );
                 })}
               </div>
 
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 pt-4 border-t border-white/5">User Actions</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 pt-4 border-t border-white/10">User Actions</h3>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => handleTabClick("profile")}
-                  className={`flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  className={`flex items-center justify-center space-x-2 px-3 py-3 rounded-xl border text-xs font-semibold transition-all ${
                     activeTab === "profile"
-                      ? "bg-indigo-500/20 border-indigo-500 text-white"
-                      : "bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
+                      ? "bg-indigo-600/30 border-indigo-500 text-white"
+                      : "bg-[#13192B] border-white/10 text-slate-200 hover:text-white hover:bg-[#1C243B]"
                   }`}
                 >
-                  <User className="w-3.5 h-3.5" />
+                  <User className="w-4 h-4 text-indigo-400" />
                   <span>{user ? "Profile" : "Login"}</span>
                 </button>
                 {user ? (
@@ -187,9 +198,9 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                       setMobileMenuOpen(false);
                     }}
                     disabled={loading}
-                    className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-white transition-all disabled:opacity-50 text-xs font-semibold"
+                    className="flex items-center justify-center space-x-2 px-3 py-3 rounded-xl border border-red-500/30 bg-red-500/20 text-red-300 hover:bg-red-500/30 hover:text-white transition-all disabled:opacity-50 text-xs font-semibold"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-4 h-4" />
                     <span>{loading ? "Signing out..." : "Logout"}</span>
                   </button>
                 ) : (
@@ -197,16 +208,16 @@ const Header: React.FC<HeaderProps> = ({ activeTab = "home", onTabChange }) => {
                     onClick={() => {
                       handleTabClick("profile");
                     }}
-                    className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-white transition-all text-xs font-semibold"
+                    className="flex items-center justify-center space-x-2 px-3 py-3 rounded-xl border border-indigo-500/30 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition-all text-xs font-semibold"
                   >
-                    <User className="w-3.5 h-3.5" />
+                    <User className="w-4 h-4" />
                     <span>Register</span>
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="border-t border-white/5 pt-6 text-center text-xs text-slate-500">
+            <div className="border-t border-white/10 pt-6 text-center text-xs text-slate-400 font-medium">
               MockVerse(AI) Engine &copy; {new Date().getFullYear()}
             </div>
           </div>
