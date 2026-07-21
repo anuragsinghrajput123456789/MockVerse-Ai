@@ -5,7 +5,7 @@ import { validateEvaluateAnswersInput, validateObjectId } from './shared/validat
 
 // @desc    Evaluate submitted answers for a paper
 // @route   POST /api/papers/:id/evaluate
-// @access  Private
+// @access  Private / Public
 export const evaluateAnswers = async (req, res) => {
   try {
     const validation = validateEvaluateAnswersInput(req.body);
@@ -25,7 +25,7 @@ export const evaluateAnswers = async (req, res) => {
 
     const prompt = buildEvaluateAnswersPrompt(paper.questions, req.body.answers);
 
-    const evaluationContent = await callGeminiWithFallback(prompt, req, 'evaluate_answers');
+    const evaluationContent = await callGeminiWithFallback(prompt, req, 'evaluate_answers', `/api/papers/${req.params.id}/evaluate`);
 
     // Update database
     paper.evaluationResult = evaluationContent;

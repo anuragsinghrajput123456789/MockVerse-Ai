@@ -1,5 +1,5 @@
 /**
- * Builds compressed, optimized prompts for Gemini model interactions.
+ * Builds compressed, token-optimized prompts for Gemini model interactions.
  */
 
 export const buildGeneratePaperPrompt = ({
@@ -14,25 +14,26 @@ export const buildGeneratePaperPrompt = ({
   customPatternDetails,
   instructions,
 }) => {
-  return `Generate a complete ${subject} exam paper for Class/Grade: ${studentClass || 'N/A'}.
+  const cleanTopics = topics ? `\nFocus Topics: ${String(topics).substring(0, 300)}` : '';
+  const cleanInstruct = instructions ? `\nInstructions: ${String(instructions).substring(0, 400)}` : '';
+  const cleanCustomPattern = pattern === 'Custom' && customPatternDetails ? ` (${String(customPatternDetails).substring(0, 300)})` : '';
 
-Target Exam/Board: ${board || 'Standard'}
-Total Marks: ${totalMarks || 100}
-Difficulty: ${difficulty || 'Medium'}
-Pattern: ${pattern || 'Board-style'}${pattern === 'Custom' && customPatternDetails ? ` (${String(customPatternDetails).substring(0, 1000)})` : ''}
-Chapters: ${chapters.join(', ')}${topics ? `\nFocus Topics: ${String(topics).substring(0, 1000)}` : ''}${instructions ? `\nSpecial Instructions: ${String(instructions).substring(0, 2000)}` : ''}
+  return `Generate a complete ${subject} exam paper for Class ${studentClass || 'N/A'}.
+Board: ${board || 'Standard'} | Marks: ${totalMarks || 100} | Difficulty: ${difficulty || 'Medium'} | Pattern: ${pattern || 'Board-style'}${cleanCustomPattern}
+Chapters: ${chapters.join(', ')}${cleanTopics}${cleanInstruct}
 
-Output Requirements:
-- Title Header (Subject, Class, Time Allowed, Total Marks)
-- Structured section divisions with question numbers & mark allocations
-- Complete exam-ready questions matching total marks without placeholders
+Requirements:
+- Exam Header (Subject, Class, Marks, Time)
+- Clear numbered sections with mark distribution
+- Full exam-ready questions matching total marks without filler text
 - Clean Markdown formatting`;
 };
 
 export const buildEvaluateAnswersPrompt = (questions, answers) => {
-  const truncatedQuestions = String(questions).substring(0, 8000);
+  const truncatedQuestions = String(questions).substring(0, 3500);
   const formattedAnswers = answers
-    .map((ans, i) => `Q${i + 1}: ${String(ans).substring(0, 2000)}`)
+    .slice(0, 50)
+    .map((ans, i) => `Q${i + 1}: ${String(ans).substring(0, 400)}`)
     .join('\n');
 
   return `Evaluate student answers against the exam paper below.
@@ -44,34 +45,35 @@ Student Answers:
 ${formattedAnswers}
 
 Output Format:
-1. Total Score (Earned / Total)
-2. Itemized Question Feedback (Marks awarded + constructive hints)
-3. Summary & Strengths / Areas for Improvement`;
+1. Score (Earned / Total)
+2. Itemized Question Feedback (Marks + constructive notes)
+3. Summary & Key Improvements`;
 };
 
 export const buildGenerateSolutionsPrompt = (questions) => {
-  const truncatedQuestions = String(questions).substring(0, 10000);
+  const truncatedQuestions = String(questions).substring(0, 4000);
 
-  return `Generate step-by-step worked solutions for the following exam paper:
+  return `Generate step-by-step worked solutions for this exam paper:
 
 ${truncatedQuestions}
 
 Format:
-- Solution header for each Question Number
-- Step-by-step mathematical or logical working
-- Final answer highlighted in bold`;
+- Question Number Header
+- Step-by-step working
+- Final answer in bold`;
 };
 
 export const buildChatbotPrompt = (contextPrompt, historyPrompt, message) => {
-  const compressedContext = contextPrompt ? String(contextPrompt).substring(0, 4000) : '';
-  const compressedHistory = historyPrompt ? String(historyPrompt).substring(0, 2000) : '';
+  const compressedContext = contextPrompt ? String(contextPrompt).substring(0, 1200) : '';
+  const compressedHistory = historyPrompt ? String(historyPrompt).substring(0, 800) : '';
 
   return `You are MockVerse AI, an encouraging academic study tutor.
 ${compressedContext}
 ${compressedHistory}
-Student Question: ${String(message).substring(0, 2000)}
+Student Question: ${String(message).substring(0, 800)}
 
-Response Guidelines:
-- Direct, clear, educational explanation
-- Use concise Markdown and step-by-step formatting`;
+Guidelines:
+- Clear, direct academic explanation
+- Concise Markdown formatting`;
 };
+

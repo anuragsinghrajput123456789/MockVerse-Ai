@@ -119,6 +119,14 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
   const [newChapter, setNewChapter] = useState('');
   const [subjectSearch, setSubjectSearch] = useState(formData.subject);
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync isSubmitting with parent loading state
+  useEffect(() => {
+    if (!loading) {
+      setIsSubmitting(false);
+    }
+  }, [loading]);
 
   // Auto-save draft
   useEffect(() => {
@@ -279,6 +287,8 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
   // Submit Handler
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || isSubmitting) return;
+
     const newErrors = validatePaperForm(formData);
 
     if (Object.keys(newErrors).length > 0) {
@@ -291,6 +301,7 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
     }
 
     setErrors({});
+    setIsSubmitting(true);
 
     // Compile extra specifications into instructions and customPatternDetails
     const tagPrompts = formData.selectedAiTags
@@ -767,11 +778,11 @@ const PaperForm: React.FC<PaperFormProps> = ({ onSubmit, loading }) => {
               ) : (
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.01] disabled:opacity-50 flex items-center space-x-2"
+                  disabled={loading || isSubmitting}
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>{loading ? 'Synthesizing Exam Paper...' : 'Assemble & Generate Questions'}</span>
+                  <span>{(loading || isSubmitting) ? 'Synthesizing Exam Paper...' : 'Assemble & Generate Questions'}</span>
                 </button>
               )}
             </div>

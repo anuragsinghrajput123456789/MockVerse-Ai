@@ -49,6 +49,14 @@ export const AnswerForm: React.FC<AnswerFormProps> = ({ questionPaper, onSubmit,
   const parsedQuestions = useMemo(() => parseQuestions(questionPaper), [questionPaper]);
   const [answers, setAnswers] = useState<string[]>([]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setIsSubmitting(false);
+    }
+  }, [loading]);
+
   useEffect(() => {
     if (parsedQuestions.length > 0) {
       setAnswers(Array(parsedQuestions.length).fill(''));
@@ -59,6 +67,8 @@ export const AnswerForm: React.FC<AnswerFormProps> = ({ questionPaper, onSubmit,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || isSubmitting || answers.every(a => a.trim() === '')) return;
+    setIsSubmitting(true);
     onSubmit(answers.map(answer => answer.trim()));
   };
 
@@ -150,11 +160,11 @@ export const AnswerForm: React.FC<AnswerFormProps> = ({ questionPaper, onSubmit,
           
           <button
             type="submit"
-            disabled={loading || answers.every(a => a.trim() === '')}
+            disabled={loading || isSubmitting || answers.every(a => a.trim() === '')}
             className="flex-1 py-3.5 px-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all duration-300 hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed text-xs flex items-center justify-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
-            <span>{loading ? 'Submitting & Grading...' : 'Submit Answers for AI Evaluation'}</span>
+            <span>{(loading || isSubmitting) ? 'Submitting & Grading...' : 'Submit Answers for AI Evaluation'}</span>
           </button>
         </div>
       </form>

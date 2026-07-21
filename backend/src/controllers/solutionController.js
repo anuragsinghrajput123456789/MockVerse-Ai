@@ -5,7 +5,7 @@ import { validateObjectId } from './shared/validation.js';
 
 // @desc    Generate solutions for a specific paper
 // @route   POST /api/papers/:id/solutions
-// @access  Private
+// @access  Private / Public
 export const generateSolutions = async (req, res) => {
   try {
     if (!validateObjectId(req.params.id)) {
@@ -18,14 +18,15 @@ export const generateSolutions = async (req, res) => {
       return res.status(404).json({ message: 'Question paper not found or access denied.' });
     }
 
-    // If solutions already exist, just return them
+    // ─── CHECK MONGODB CACHE BEFORE CALLING GEMINI ───
     if (paper.solutions) {
+      console.log(`[GEMINI_CACHE] [MONGODB_HIT] Reusing cached solutions for paper ID: ${paper._id} | Saved 1 Gemini API Request`);
       return res.json({ solutions: paper.solutions });
     }
 
     const prompt = buildGenerateSolutionsPrompt(paper.questions);
 
-    const solutionContent = await callGeminiWithFallback(prompt, req, 'generate_solutions');
+    const solutionContent = await callGeminiWithFallback(prompt, req, 'generate_solutions', `/api/papers/${req.params.id}/solutions`);
 
     // Update database
     paper.solutions = solutionContent;

@@ -5,7 +5,7 @@ import { validateChatbotInput, validateObjectId } from './shared/validation.js';
 
 // @desc    Chatbot interaction with paper context
 // @route   POST /api/chat
-// @access  Private
+// @access  Private / Public
 export const chatbot = async (req, res) => {
   try {
     const validation = validateChatbotInput(req.body);
@@ -42,7 +42,7 @@ export const chatbot = async (req, res) => {
 
     const prompt = buildChatbotPrompt(contextPrompt, historyPrompt, sanitizedMessage);
 
-    const chatResponse = await callGeminiWithFallback(prompt, req, 'chatbot');
+    const chatResponse = await callGeminiWithFallback(prompt, req, 'chatbot', '/api/chat');
 
     res.json({ response: chatResponse });
   } catch (error) {

@@ -14,6 +14,11 @@ export const fetchWithRetry = async (
     try {
       const res = await fetchWithTimeout(url, options, timeoutMs);
 
+      // Never retry client error 400 or rate limit / quota exhaustion 429
+      if (res.status === 429 || res.status === 400 || res.status === 401) {
+        return res;
+      }
+
       // Only retry on 502, 503, 504 (transient server errors)
       if (res.status >= 502 && res.status <= 504 && attempt === 0) {
         lastError = await parseApiError(res, defaultErrorMsg);

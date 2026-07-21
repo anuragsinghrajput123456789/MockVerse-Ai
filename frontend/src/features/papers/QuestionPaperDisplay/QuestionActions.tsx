@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, PenTool } from 'lucide-react';
 
 interface QuestionActionsProps {
@@ -14,16 +14,31 @@ export const QuestionActions: React.FC<QuestionActionsProps> = ({
   onGenerateSolutions,
   onStartAnswering
 }) => {
+  const [isClicked, setIsClicked] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setIsClicked(false);
+    }
+  }, [loading]);
+
+  const handleGenerateClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (loading || isClicked || !onGenerateSolutions) return;
+    setIsClicked(true);
+    onGenerateSolutions();
+  };
+
   return (
     <div className="flex flex-wrap gap-3">
       {onGenerateSolutions && type === 'question' && (
         <button
-          onClick={onGenerateSolutions}
-          disabled={loading}
+          onClick={handleGenerateClick}
+          disabled={loading || isClicked}
           className="px-4.5 py-2.5 bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/35 hover:border-indigo-500/50 text-indigo-300 hover:text-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all duration-300 text-xs font-bold flex items-center gap-2"
         >
           <Sparkles className="w-4 h-4" />
-          <span>{loading ? 'Solving...' : 'Generate Solutions'}</span>
+          <span>{(loading || isClicked) ? 'Solving...' : 'Generate Solutions'}</span>
         </button>
       )}
       

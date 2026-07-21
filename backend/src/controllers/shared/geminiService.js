@@ -6,12 +6,14 @@ import { decryptApiKey } from '../authController.js';
 // Model configuration with env fallback
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
-// ─── IN-MEMORY RESPONSE CACHE & IN-FLIGHT DEDUPLICATION ───────────────────────
+// ─── IN-MEMORY RESPONSE CACHE, IN-FLIGHT DEDUPLICATION & USER REQUEST LOCKS ───────────────────────
 const aiResponseCache = new Map();
 const inFlightRequests = new Map();
+const activeUserLocks = new Map(); // Key: userId/IP -> { requestId, startTime, purpose, endpoint }
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 Minutes
 const MAX_CACHE_ENTRIES = 100;
+const LOCK_TIMEOUT_MS = 120 * 1000; // 2 minutes auto-expire lock safety
 
 // Clean up expired cache entries periodically
 const cleanExpiredCache = () => {
@@ -24,6 +26,17 @@ const cleanExpiredCache = () => {
   if (aiResponseCache.size > MAX_CACHE_ENTRIES) {
     const oldestKey = aiResponseCache.keys().next().value;
     if (oldestKey) aiResponseCache.delete(oldestKey);
+  }
+};
+
+// Clean up expired user locks
+const cleanExpiredUserLocks = () => {
+  const now = Date.now();
+  for (const [userKey, lock] of activeUserLocks.entries()) {
+    if (now - lock.startTime > LOCK_TIMEOUT_MS) {
+      console.warn(`[REQUEST_LOCK] Auto-releasing timed out lock for user/IP: ${userKey}`);
+      activeUserLocks.delete(userKey);
+    }
   }
 };
 
@@ -41,9 +54,10 @@ export const resolveApiKey = async (req) => {
   }
 
   // Priority 2: User's stored encrypted key in MongoDB
-  if (req?.user?.id) {
+  if (req?.user?.id || req?.user?._id) {
     try {
-      const user = await User.findById(req.user.id);
+      const userId = req.user.id || req.user._id;
+      const user = await User.findById(userId);
       if (user?.apiKey) {
         const decrypted = decryptApiKey(user.apiKey);
         if (decrypted) {
@@ -63,8 +77,21 @@ export const resolveApiKey = async (req) => {
   return { key: null, source: null };
 };
 
-// Helper to call Gemini API using the official @google/genai SDK
-export const callGemini = async (prompt, apiKey, purpose = 'general') => {
+// Purpose-based Max Output Token Limits to prevent quota exhaustion
+const PURPOSE_MAX_TOKENS = {
+  generate_paper: 2048,
+  generate_solutions: 1500,
+  evaluate_answers: 1000,
+  chatbot: 800,
+  general: 1500,
+};
+
+/**
+ * Core function to execute requests against Google Gemini API
+ * Includes: Response Caching, In-flight Deduplication, Per-User Request Locking,
+ * Exponential Backoff for rate limits, and Structured Logging.
+ */
+export const callGemini = async (prompt, apiKey, purpose = 'general', meta = {}) => {
   if (!apiKey) {
     throw new Error('Gemini API key is not configured on server and no custom key provided.');
   }
@@ -76,37 +103,87 @@ export const callGemini = async (prompt, apiKey, purpose = 'general') => {
     throw new Error('Prompt is too long. Please reduce the input size.');
   }
 
+  const userId = meta.userId || 'anonymous';
+  const endpoint = meta.endpoint || 'N/A';
+  const userLockKey = String(userId);
+
   const reqHash = createRequestHash(prompt, cleanApiKey, purpose);
   const requestId = reqHash.slice(0, 8);
   const startTime = Date.now();
+  const timestamp = new Date().toISOString();
+  const estInputTokens = Math.ceil(prompt.length / 4);
 
   // 1. CHECK IN-MEMORY RESPONSE CACHE
   cleanExpiredCache();
   const cached = aiResponseCache.get(reqHash);
   if (cached && (startTime - cached.timestamp < CACHE_TTL_MS)) {
-    console.log(`[GEMINI_API] [CACHE_HIT] RequestId: ${requestId} | Purpose: ${purpose} | Duration: 0ms | Saved 1 Gemini API Request`);
+    console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${timestamp} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | EstOutputTokens: ${Math.ceil(cached.content.length / 4)} | ExecutionTime: 0ms | Status: SUCCESS_CACHE_HIT`);
     return cached.content;
   }
 
   // 2. CHECK IN-FLIGHT DEDUPLICATION
   if (inFlightRequests.has(reqHash)) {
-    console.log(`[GEMINI_API] [DEDUPLICATED] RequestId: ${requestId} | Purpose: ${purpose} | Joining active in-flight request...`);
+    console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${timestamp} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | ExecutionTime: 0ms | Status: DEDUPLICATED_IN_FLIGHT`);
     return await inFlightRequests.get(reqHash);
   }
 
-  // 3. EXECUTE GEMINI API REQUEST WITH DEDUPLICATION LOCK
+  // 3. CHECK PER-USER REQUEST LOCKING
+  cleanExpiredUserLocks();
+  if (activeUserLocks.has(userLockKey)) {
+    const activeLock = activeUserLocks.get(userLockKey);
+    console.warn(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${timestamp} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | Status: REJECTED_CONCURRENT_LOCK | ActiveRequestId: ${activeLock.requestId}`);
+    const lockError = new Error('CONCURRENT_REQUEST_LIMIT: A paper generation or AI request is already in progress for your account. Please wait for it to complete.');
+    lockError.statusCode = 429;
+    lockError.errorCode = 'CONCURRENT_REQUEST_LIMIT';
+    throw lockError;
+  }
+
+  // Acquire lock for this user/IP
+  activeUserLocks.set(userLockKey, { requestId, startTime: Date.now(), purpose, endpoint });
+
+  // 4. EXECUTE GEMINI API REQUEST WITH DEDUPLICATION LOCK & EXPONENTIAL BACKOFF
   const requestPromise = (async () => {
     try {
-      console.log(`[GEMINI_API] [START] RequestId: ${requestId} | Purpose: ${purpose} | Model: ${GEMINI_MODEL} | PromptChars: ${prompt.length}`);
+      const maxTokens = PURPOSE_MAX_TOKENS[purpose] || 1500;
+      console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${timestamp} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | Model: ${GEMINI_MODEL} | MaxOutputTokens: ${maxTokens} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | Status: START`);
 
       const ai = new GoogleGenAI({ apiKey: cleanApiKey });
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-      });
+      let response;
+      let attempt = 0;
+      const maxAttempts = 3;
 
-      let textContent = response.text;
+      while (attempt < maxAttempts) {
+        try {
+          response = await ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: prompt,
+            config: {
+              maxOutputTokens: maxTokens,
+            },
+          });
+          break; // Successful call
+        } catch (genError) {
+          attempt++;
+          const errText = genError.message || '';
+          const isRateLimit =
+            genError.status === 429 ||
+            errText.includes('429') ||
+            errText.includes('RESOURCE_EXHAUSTED') ||
+            errText.includes('rate limit') ||
+            errText.includes('quota');
+
+          if (isRateLimit && attempt < maxAttempts) {
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 400), 5000);
+            console.warn(`[GEMINI_API_LOG] RequestId: ${requestId} | Transient 429 rate limit hit. Exponential backoff ${backoffMs}ms (Attempt ${attempt}/${maxAttempts})...`);
+            await new Promise((r) => setTimeout(r, backoffMs));
+            continue;
+          }
+          throw genError;
+        }
+      }
+
+      let textContent = response?.text;
 
       if (!textContent || !textContent.trim()) {
         throw new Error('No text content returned from Gemini API.');
@@ -126,8 +203,8 @@ export const callGemini = async (prompt, apiKey, purpose = 'general') => {
       }
 
       const duration = Date.now() - startTime;
-      const estTokens = Math.round((prompt.length + cleanText.length) / 4);
-      console.log(`[GEMINI_API] [SUCCESS] RequestId: ${requestId} | Purpose: ${purpose} | Duration: ${duration}ms | EstTokens: ~${estTokens}`);
+      const estOutputTokens = Math.ceil(cleanText.length / 4);
+      console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${new Date().toISOString()} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | EstOutputTokens: ${estOutputTokens} | ExecutionTime: ${duration}ms | Status: SUCCESS`);
 
       // Store in response cache
       aiResponseCache.set(reqHash, { content: cleanText, timestamp: Date.now() });
@@ -137,7 +214,7 @@ export const callGemini = async (prompt, apiKey, purpose = 'general') => {
     } catch (error) {
       const duration = Date.now() - startTime;
       const errMsg = error.message || '';
-      console.error(`[GEMINI_API] [ERROR] RequestId: ${requestId} | Purpose: ${purpose} | Duration: ${duration}ms | Error: ${errMsg}`);
+      console.error(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${new Date().toISOString()} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | EstOutputTokens: 0 | ExecutionTime: ${duration}ms | Status: FAILURE | Error: ${errMsg}`);
 
       // Handle API key errors
       if (
@@ -174,6 +251,7 @@ export const callGemini = async (prompt, apiKey, purpose = 'general') => {
       throw new Error(`Gemini API error: ${errMsg}`);
     } finally {
       inFlightRequests.delete(reqHash);
+      activeUserLocks.delete(userLockKey);
     }
   })();
 
@@ -182,22 +260,31 @@ export const callGemini = async (prompt, apiKey, purpose = 'general') => {
 };
 
 // Helper to call Gemini API with fallback retry and secondary API key attempts
-export const callGeminiWithFallback = async (prompt, req, purpose = 'general') => {
+export const callGeminiWithFallback = async (prompt, req, purpose = 'general', endpointOverride = null) => {
   const { key, source } = await resolveApiKey(req);
+  const userId = req?.user?.id || req?.user?._id || req?.ip || 'anonymous';
+  const endpoint = endpointOverride || req?.originalUrl || req?.baseUrl || 'N/A';
+  const meta = { userId, endpoint };
   
   if (!key) {
     throw new Error('Gemini API key is not configured on server and no custom key provided.');
   }
 
   try {
-    return await callGemini(prompt, key, purpose);
+    return await callGemini(prompt, key, purpose, meta);
   } catch (firstError) {
-    if (source !== 'server' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== key.trim()) {
-      console.warn(`Primary key (${source}) failed: ${firstError.message}. Trying server default fallback key...`);
+    // Never try fallback key if the error was a rate limit 429, user lock, or prompt validation issue
+    const isRateLimitOrLock =
+      firstError.errorCode === 'CONCURRENT_REQUEST_LIMIT' ||
+      firstError.errorCode === 'API_KEY_QUOTA_EXHAUSTED' ||
+      firstError.statusCode === 429;
+
+    if (!isRateLimitOrLock && source !== 'server' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== key.trim()) {
+      console.warn(`[GEMINI_FALLBACK] Primary key (${source}) failed: ${firstError.message}. Trying server default fallback key...`);
       try {
-        return await callGemini(prompt, process.env.GEMINI_API_KEY, `${purpose}_fallback`);
+        return await callGemini(prompt, process.env.GEMINI_API_KEY, `${purpose}_fallback`, meta);
       } catch (fallbackError) {
-        console.error('Server default fallback key also failed:', fallbackError.message);
+        console.error('[GEMINI_FALLBACK] Server default fallback key also failed:', fallbackError.message);
         throw fallbackError;
       }
     }
@@ -208,6 +295,13 @@ export const callGeminiWithFallback = async (prompt, req, purpose = 'general') =
 // Helper to send quota-aware error responses
 export const handleApiError = (error, res, defaultMessage) => {
   console.error(defaultMessage + ':', error.message || error);
+
+  if (error.errorCode === 'CONCURRENT_REQUEST_LIMIT' || error.message?.startsWith('CONCURRENT_REQUEST_LIMIT')) {
+    return res.status(429).json({
+      message: error.message.replace('CONCURRENT_REQUEST_LIMIT: ', ''),
+      errorCode: 'CONCURRENT_REQUEST_LIMIT',
+    });
+  }
 
   if (error.message?.startsWith('API_KEY_QUOTA_EXHAUSTED')) {
     return res.status(429).json({
