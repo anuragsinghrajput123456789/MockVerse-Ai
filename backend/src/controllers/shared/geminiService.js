@@ -4,7 +4,7 @@ import User from '../../models/User.js';
 import { decryptApiKey } from '../authController.js';
 
 // Model configuration with env fallback
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 // ─── IN-MEMORY RESPONSE CACHE, IN-FLIGHT DEDUPLICATION & USER REQUEST LOCKS ───────────────────────
 const aiResponseCache = new Map();
@@ -77,13 +77,13 @@ export const resolveApiKey = async (req) => {
   return { key: null, source: null };
 };
 
-// Purpose-based Max Output Token Limits to prevent quota exhaustion
+// Purpose-based Max Output Token Limits to prevent quota exhaustion and premature truncation
 const PURPOSE_MAX_TOKENS = {
-  generate_paper: 2048,
-  generate_solutions: 1500,
-  evaluate_answers: 1000,
-  chatbot: 800,
-  general: 1500,
+  generate_paper: 8192,
+  generate_solutions: 8192,
+  evaluate_answers: 4096,
+  chatbot: 2048,
+  general: 4096,
 };
 
 /**

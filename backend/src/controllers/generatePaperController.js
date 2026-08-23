@@ -49,7 +49,8 @@ export const generatePaper = async (req, res) => {
       questions: { $exists: true, $ne: '' },
     }).sort({ createdAt: -1 });
 
-    if (existingPaper) {
+    // Only reuse cached paper if it is complete and has substantial question content (>= 500 chars)
+    if (existingPaper && existingPaper.questions && existingPaper.questions.trim().length >= 500) {
       console.log(`[GEMINI_CACHE] [MONGODB_HIT] Reusing cached paper ID: ${existingPaper._id} | Subject: "${cleanSubject}" | Class: "${cleanClass}" | Board: "${cleanBoard}" | Saved 1 Gemini API Request`);
       return res.status(200).json(formatPaperResponse(existingPaper));
     }

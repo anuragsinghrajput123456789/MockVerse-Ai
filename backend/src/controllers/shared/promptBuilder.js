@@ -14,26 +14,26 @@ export const buildGeneratePaperPrompt = ({
   customPatternDetails,
   instructions,
 }) => {
-  const cleanTopics = topics ? `\nFocus Topics: ${String(topics).substring(0, 300)}` : '';
-  const cleanInstruct = instructions ? `\nInstructions: ${String(instructions).substring(0, 400)}` : '';
-  const cleanCustomPattern = pattern === 'Custom' && customPatternDetails ? ` (${String(customPatternDetails).substring(0, 300)})` : '';
+  const cleanTopics = topics ? `\nFocus Topics: ${String(topics).substring(0, 500)}` : '';
+  const cleanInstruct = instructions ? `\nSpecific Instructions: ${String(instructions).substring(0, 500)}` : '';
+  const cleanCustomPattern = pattern === 'Custom' && customPatternDetails ? ` (${String(customPatternDetails).substring(0, 400)})` : '';
 
-  return `Generate a complete ${subject} exam paper for Class ${studentClass || 'N/A'}.
-Board: ${board || 'Standard'} | Marks: ${totalMarks || 100} | Difficulty: ${difficulty || 'Medium'} | Pattern: ${pattern || 'Board-style'}${cleanCustomPattern}
-Chapters: ${chapters.join(', ')}${cleanTopics}${cleanInstruct}
+  return `You are a master academic examiner. Generate a complete, high-quality ${subject} exam question paper for Class ${studentClass || 'N/A'}.
+Board: ${board || 'Standard'} | Total Marks: ${totalMarks || 100} | Difficulty: ${difficulty || 'Medium'} | Pattern: ${pattern || 'Board-style'}${cleanCustomPattern}
+Syllabus / Chapters: ${chapters.join(', ')}${cleanTopics}${cleanInstruct}
 
-Requirements:
-- Exam Header (Subject, Class, Marks, Time)
-- Clear numbered sections with mark distribution
-- Full exam-ready questions matching total marks without filler text
-- Clean Markdown formatting`;
+CRITICAL GENERATION RULES:
+1. COMPLETE PAPER: You MUST write out EVERY SINGLE QUESTION in full from start to finish. NEVER stop midway, truncate, summarize, or leave placeholder comments like "(Questions continue...)".
+2. SECTION STRUCTURE: Organize the exam paper logically into standard sections (e.g., Section A: Objective/MCQs, Section B: Short Answer, Section C: Long Answer, Section D/E: Case Studies/Detailed Problems) appropriate for ${board || 'Board'} exam standards.
+3. MARKS DISTRIBUTION: State marks for each question clearly in brackets like [1 Mark], [2 Marks], [3 Marks], [5 Marks], ensuring the sum of all question marks equals exactly ${totalMarks || 100} Marks.
+4. FORMATTING: Use clean Markdown formatting with clear section titles, bold numbered questions, and options for MCQs.`;
 };
 
 export const buildEvaluateAnswersPrompt = (questions, answers) => {
-  const truncatedQuestions = String(questions).substring(0, 3500);
+  const truncatedQuestions = String(questions).substring(0, 10000);
   const formattedAnswers = answers
-    .slice(0, 50)
-    .map((ans, i) => `Q${i + 1}: ${String(ans).substring(0, 400)}`)
+    .slice(0, 60)
+    .map((ans, i) => `Q${i + 1}: ${String(ans).substring(0, 1000)}`)
     .join('\n');
 
   return `Evaluate student answers against the exam paper below.
@@ -45,22 +45,22 @@ Student Answers:
 ${formattedAnswers}
 
 Output Format:
-1. Score (Earned / Total)
-2. Itemized Question Feedback (Marks + constructive notes)
-3. Summary & Key Improvements`;
+1. Score Summary (Earned / Total Marks)
+2. Itemized Question Feedback (Marks awarded + constructive notes for each question)
+3. Key Strengths & Areas for Improvement`;
 };
 
 export const buildGenerateSolutionsPrompt = (questions) => {
-  const truncatedQuestions = String(questions).substring(0, 4000);
+  const truncatedQuestions = String(questions).substring(0, 12000);
 
-  return `Generate step-by-step worked solutions for this exam paper:
+  return `Generate step-by-step worked solutions for every question in this exam paper:
 
 ${truncatedQuestions}
 
 Format:
-- Question Number Header
-- Step-by-step working
-- Final answer in bold`;
+- Question Number Header (e.g. ### Question 1)
+- Clear step-by-step mathematical/conceptual solution
+- Final Answer highlighted in bold`;
 };
 
 export const buildChatbotPrompt = (contextPrompt, historyPrompt, message) => {
