@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import { useToast } from '../../shared/hooks/use-toast';
 import { getTypeIcon, getTypeColor, getDifficultyColor } from '../../shared/utils/formatters';
-import { API_BASE_URL } from '../../shared/services/shared/apiConfig';
+import { downloadResourceQr as apiDownloadResourceQr } from '../../shared/services/resourceService';
+
 
 interface ResourceListProps {
   resources: Resource[];
@@ -68,10 +69,7 @@ const ResourceList: React.FC<ResourceListProps> = ({
         title: "Generating QR...",
         description: "Retrieving individual resource QR code from server.",
       });
-      const qrEndpoint = `${API_BASE_URL}/resources/sheets/${resource.id}/qr?type=resource`;
-      const res = await fetch(qrEndpoint);
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
+      const blob = await apiDownloadResourceQr(resource.id || (resource as any)._id);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

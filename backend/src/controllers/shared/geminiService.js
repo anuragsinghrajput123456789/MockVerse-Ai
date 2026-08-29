@@ -14,6 +14,7 @@ const activeUserLocks = new Map(); // Key: userId/IP -> { requestId, startTime, 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 Minutes
 const MAX_CACHE_ENTRIES = 100;
 const LOCK_TIMEOUT_MS = 120 * 1000; // 2 minutes auto-expire lock safety
+const GEMINI_CALL_TIMEOUT_MS = 90 * 1000; // 90s server-side timeout per Gemini call
 
 // Clean up expired cache entries periodically
 const cleanExpiredCache = () => {
@@ -23,9 +24,10 @@ const cleanExpiredCache = () => {
       aiResponseCache.delete(key);
     }
   }
-  if (aiResponseCache.size > MAX_CACHE_ENTRIES) {
+  while (aiResponseCache.size > MAX_CACHE_ENTRIES) {
     const oldestKey = aiResponseCache.keys().next().value;
     if (oldestKey) aiResponseCache.delete(oldestKey);
+    else break;
   }
 };
 
@@ -142,121 +144,154 @@ export const callGemini = async (prompt, apiKey, purpose = 'general', meta = {})
   activeUserLocks.set(userLockKey, { requestId, startTime: Date.now(), purpose, endpoint });
 
   // 4. EXECUTE GEMINI API REQUEST WITH DEDUPLICATION LOCK & EXPONENTIAL BACKOFF
-  const requestPromise = (async () => {
-    try {
-      const maxTokens = PURPOSE_MAX_TOKENS[purpose] || 1500;
-      console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${timestamp} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | Model: ${GEMINI_MODEL} | MaxOutputTokens: ${maxTokens} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | Status: START`);
+  // FIX: Register the in-flight promise BEFORE the IIFE starts executing to prevent
+  // race conditions where a duplicate request slips through the dedup check.
+  let resolveInFlight, rejectInFlight;
+  const deferredPromise = new Promise((resolve, reject) => {
+    resolveInFlight = resolve;
+    rejectInFlight = reject;
+  });
+  inFlightRequests.set(reqHash, deferredPromise);
 
-      const ai = new GoogleGenAI({ apiKey: cleanApiKey });
+  try {
+    const maxTokens = PURPOSE_MAX_TOKENS[purpose] || 1500;
+    console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${timestamp} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | Model: ${GEMINI_MODEL} | MaxOutputTokens: ${maxTokens} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | Status: START`);
 
-      let response;
-      let attempt = 0;
-      const maxAttempts = 3;
+    const ai = new GoogleGenAI({ apiKey: cleanApiKey });
 
-      while (attempt < maxAttempts) {
-        try {
-          response = await ai.models.generateContent({
+    let response;
+    let attempt = 0;
+    const maxAttempts = 3;
+
+    while (attempt < maxAttempts) {
+      try {
+        // Server-side timeout to prevent indefinite hangs
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Gemini API request timed out after 90 seconds.')), GEMINI_CALL_TIMEOUT_MS)
+        );
+
+        response = await Promise.race([
+          ai.models.generateContent({
             model: GEMINI_MODEL,
             contents: prompt,
             config: {
               maxOutputTokens: maxTokens,
             },
-          });
-          break; // Successful call
-        } catch (genError) {
-          attempt++;
-          const errText = genError.message || '';
-          const isRateLimit =
-            genError.status === 429 ||
-            errText.includes('429') ||
-            errText.includes('RESOURCE_EXHAUSTED') ||
-            errText.includes('rate limit') ||
-            errText.includes('quota');
+          }),
+          timeoutPromise,
+        ]);
+        break; // Successful call
+      } catch (genError) {
+        attempt++;
+        const errText = genError.message || '';
+        const isRateLimit =
+          genError.status === 429 ||
+          errText.includes('429') ||
+          errText.includes('RESOURCE_EXHAUSTED') ||
+          errText.includes('rate limit') ||
+          errText.includes('quota');
 
-          if (isRateLimit && attempt < maxAttempts) {
-            const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 400), 5000);
-            console.warn(`[GEMINI_API_LOG] RequestId: ${requestId} | Transient 429 rate limit hit. Exponential backoff ${backoffMs}ms (Attempt ${attempt}/${maxAttempts})...`);
-            await new Promise((r) => setTimeout(r, backoffMs));
-            continue;
-          }
-          throw genError;
+        if (isRateLimit && attempt < maxAttempts) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 400), 5000);
+          console.warn(`[GEMINI_API_LOG] RequestId: ${requestId} | Transient 429 rate limit hit. Exponential backoff ${backoffMs}ms (Attempt ${attempt}/${maxAttempts})...`);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          continue;
         }
+        throw genError;
       }
-
-      let textContent = response?.text;
-
-      if (!textContent || !textContent.trim()) {
-        throw new Error('No text content returned from Gemini API.');
-      }
-
-      // Clean up response: Strip surrounding markdown code block wrappers
-      let cleanText = textContent.trim();
-      if (cleanText.startsWith('```')) {
-        const lines = cleanText.split('\n');
-        if (lines[0].startsWith('```')) {
-          lines.shift();
-        }
-        if (lines[lines.length - 1].startsWith('```')) {
-          lines.pop();
-        }
-        cleanText = lines.join('\n').trim();
-      }
-
-      const duration = Date.now() - startTime;
-      const estOutputTokens = Math.ceil(cleanText.length / 4);
-      console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${new Date().toISOString()} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | EstOutputTokens: ${estOutputTokens} | ExecutionTime: ${duration}ms | Status: SUCCESS`);
-
-      // Store in response cache
-      aiResponseCache.set(reqHash, { content: cleanText, timestamp: Date.now() });
-
-      return cleanText;
-
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errMsg = error.message || '';
-      console.error(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${new Date().toISOString()} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | EstOutputTokens: 0 | ExecutionTime: ${duration}ms | Status: FAILURE | Error: ${errMsg}`);
-
-      // Handle API key errors
-      if (
-        errMsg.includes('API_KEY_INVALID') ||
-        (errMsg.includes('invalid') && errMsg.includes('key')) ||
-        errMsg.includes('UNAUTHENTICATED') ||
-        errMsg.includes('401') ||
-        error.status === 401
-      ) {
-        const apiError = new Error('API_KEY_INVALID: The provided Gemini API key is invalid or has been revoked. Please check and update your API key in the Profile settings.');
-        apiError.statusCode = 400;
-        apiError.errorCode = 'API_KEY_INVALID';
-        throw apiError;
-      }
-
-      // Handle quota/rate limit errors
-      if (
-        errMsg.includes('RESOURCE_EXHAUSTED') ||
-        errMsg.includes('quota') ||
-        errMsg.includes('rate limit') ||
-        errMsg.includes('429') ||
-        error.status === 429
-      ) {
-        const quotaError = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
-        quotaError.statusCode = 429;
-        quotaError.errorCode = 'API_KEY_QUOTA_EXHAUSTED';
-        throw quotaError;
-      }
-
-      if (errMsg.includes('safety') || errMsg.includes('blocked') || errMsg.includes('SAFETY')) {
-        throw new Error('Content generation was blocked by AI safety settings. Please try adjusting your parameters.');
-      }
-
-      throw new Error(`Gemini API error: ${errMsg}`);
-    } finally {
-      inFlightRequests.delete(reqHash);
-      activeUserLocks.delete(userLockKey);
     }
-  })();
 
-  inFlightRequests.set(reqHash, requestPromise);
-  return await requestPromise;
+    // Safe text extraction — response.text getter can throw if candidates are empty/blocked
+    let textContent;
+    try {
+      textContent = response?.text;
+    } catch (extractError) {
+      throw new Error(`Content was blocked or empty: ${extractError.message || 'No content returned from AI.'}`);
+    }
+
+    if (!textContent || !textContent.trim()) {
+      throw new Error('No text content returned from Gemini API.');
+    }
+
+    // Clean up response: Strip surrounding markdown code block wrappers
+    let cleanText = textContent.trim();
+    if (cleanText.startsWith('```')) {
+      const lines = cleanText.split('\n');
+      if (lines[0].startsWith('```')) {
+        lines.shift();
+      }
+      if (lines[lines.length - 1].startsWith('```')) {
+        lines.pop();
+      }
+      cleanText = lines.join('\n').trim();
+    }
+
+    const duration = Date.now() - startTime;
+    const estOutputTokens = Math.ceil(cleanText.length / 4);
+    console.log(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${new Date().toISOString()} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | EstOutputTokens: ${estOutputTokens} | ExecutionTime: ${duration}ms | Status: SUCCESS`);
+
+    // Store in response cache
+    aiResponseCache.set(reqHash, { content: cleanText, timestamp: Date.now() });
+
+    resolveInFlight(cleanText);
+    return cleanText;
+
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errMsg = error.message || '';
+    console.error(`[GEMINI_API_LOG] RequestId: ${requestId} | Timestamp: ${new Date().toISOString()} | Endpoint: ${endpoint} | Purpose: ${purpose} | User ID: ${userId} | PromptSize: ${prompt.length} chars | EstInputTokens: ${estInputTokens} | EstOutputTokens: 0 | ExecutionTime: ${duration}ms | Status: FAILURE | Error: ${errMsg}`);
+
+    // Handle timeout errors
+    if (errMsg.includes('timed out')) {
+      const timeoutError = new Error('The AI request took too long to respond. Please try again.');
+      timeoutError.statusCode = 504;
+      rejectInFlight(timeoutError);
+      throw timeoutError;
+    }
+
+    // Handle API key errors
+    if (
+      errMsg.includes('API_KEY_INVALID') ||
+      (errMsg.includes('invalid') && errMsg.includes('key')) ||
+      errMsg.includes('UNAUTHENTICATED') ||
+      errMsg.includes('401') ||
+      error.status === 401
+    ) {
+      const apiError = new Error('API_KEY_INVALID: The provided Gemini API key is invalid or has been revoked. Please check and update your API key in the Profile settings.');
+      apiError.statusCode = 400;
+      apiError.errorCode = 'API_KEY_INVALID';
+      rejectInFlight(apiError);
+      throw apiError;
+    }
+
+    // Handle quota/rate limit errors
+    if (
+      errMsg.includes('RESOURCE_EXHAUSTED') ||
+      errMsg.includes('quota') ||
+      errMsg.includes('rate limit') ||
+      errMsg.includes('429') ||
+      error.status === 429
+    ) {
+      const quotaError = new Error('API_KEY_QUOTA_EXHAUSTED: Your API key has exceeded its usage limit. Please check your Google AI Studio dashboard or wait for the quota to reset.');
+      quotaError.statusCode = 429;
+      quotaError.errorCode = 'API_KEY_QUOTA_EXHAUSTED';
+      rejectInFlight(quotaError);
+      throw quotaError;
+    }
+
+    if (errMsg.includes('safety') || errMsg.includes('blocked') || errMsg.includes('SAFETY')) {
+      const safetyError = new Error('Content generation was blocked by AI safety settings. Please try adjusting your parameters.');
+      rejectInFlight(safetyError);
+      throw safetyError;
+    }
+
+    const genericError = new Error(`Gemini API error: ${errMsg}`);
+    rejectInFlight(genericError);
+    throw genericError;
+  } finally {
+    inFlightRequests.delete(reqHash);
+    activeUserLocks.delete(userLockKey);
+  }
 };
 
 // Helper to call Gemini API with fallback retry and secondary API key attempts
@@ -294,29 +329,39 @@ export const callGeminiWithFallback = async (prompt, req, purpose = 'general', e
 
 // Helper to send quota-aware error responses
 export const handleApiError = (error, res, defaultMessage) => {
+  // Guard against double-response (headers already sent)
+  if (res.headersSent) {
+    console.error(`${defaultMessage} (headers already sent, cannot send error response):`, error.message || error);
+    return;
+  }
+
   console.error(defaultMessage + ':', error.message || error);
 
-  if (error.errorCode === 'CONCURRENT_REQUEST_LIMIT' || error.message?.startsWith('CONCURRENT_REQUEST_LIMIT')) {
+  // Use errorCode as primary discriminator, message as fallback
+  if (error.errorCode === 'CONCURRENT_REQUEST_LIMIT' || error.message?.includes('CONCURRENT_REQUEST_LIMIT')) {
     return res.status(429).json({
+      success: false,
       message: error.message.replace('CONCURRENT_REQUEST_LIMIT: ', ''),
       errorCode: 'CONCURRENT_REQUEST_LIMIT',
     });
   }
 
-  if (error.message?.startsWith('API_KEY_QUOTA_EXHAUSTED')) {
+  if (error.errorCode === 'API_KEY_QUOTA_EXHAUSTED' || error.message?.includes('API_KEY_QUOTA_EXHAUSTED')) {
     return res.status(429).json({
+      success: false,
       message: error.message.replace('API_KEY_QUOTA_EXHAUSTED: ', ''),
       errorCode: 'API_KEY_QUOTA_EXHAUSTED',
     });
   }
 
-  if (error.message?.startsWith('API_KEY_INVALID')) {
+  if (error.errorCode === 'API_KEY_INVALID' || error.message?.includes('API_KEY_INVALID')) {
     return res.status(400).json({
+      success: false,
       message: error.message.replace('API_KEY_INVALID: ', ''),
       errorCode: 'API_KEY_INVALID',
     });
   }
 
   const statusCode = error.statusCode || 500;
-  return res.status(statusCode).json({ message: error.message || defaultMessage });
+  return res.status(statusCode).json({ success: false, message: error.message || defaultMessage });
 };

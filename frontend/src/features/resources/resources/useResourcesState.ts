@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Resource, ResourceSheet } from '../../../shared/types';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../shared/hooks/use-toast';
@@ -11,12 +11,12 @@ import {
   duplicateResourceSheet,
   addResourceToSheet,
   updateResource,
-  deleteResource
+  deleteResource,
+  getSheetQrCodeUrl
 } from '../../../shared/services/resourceService';
 import { useShare } from '../useShare';
 import { usePDF } from '../usePDF';
 import { useFilters } from '../useFilters';
-import { API_BASE_URL } from '../../../shared/services/shared/apiConfig';
 
 export function useResourcesState() {
   const { user } = useAuth();
@@ -29,6 +29,9 @@ export function useResourcesState() {
   // Loading states
   const [loadingSheets, setLoadingSheets] = useState<boolean>(true);
   const [loadingResources, setLoadingResources] = useState<boolean>(false);
+
+  // Ref to avoid circular dependency in fetchSheets callback
+  const activeSheetIdRef = useRef<string | null>(null);
 
   // Shared view mode
   const [sharedSheetId, setSharedSheetId] = useState<string | null>(null);
@@ -90,6 +93,7 @@ export function useResourcesState() {
       setLoadingResources(true);
       const data = await getResourceSheetById(id);
       setActiveSheet(data);
+      activeSheetIdRef.current = data?.id || (data as any)?._id || null;
     } catch (err: any) {
       console.error(err);
       toast({
@@ -111,11 +115,10 @@ export function useResourcesState() {
       setSheets(data);
       if (data.length > 0) {
         let targetId = selectId;
-        if (!targetId && activeSheet) {
-          const currentId = activeSheet.id || (activeSheet as any)._id;
-          const exists = data.some(s => (s._id || s.id) === currentId);
+        if (!targetId && activeSheetIdRef.current) {
+          const exists = data.some(s => (s._id || s.id) === activeSheetIdRef.current);
           if (exists) {
-            targetId = currentId;
+            targetId = activeSheetIdRef.current;
           }
         }
         const matched = data.find(s => (s._id || s.id) === targetId) || data[0];
@@ -133,7 +136,7 @@ export function useResourcesState() {
     } finally {
       setLoadingSheets(false);
     }
-  }, [user, activeSheet, fetchSheetDetails, toast]);
+  }, [user, fetchSheetDetails, toast]);
 
   // Check URL params for share sheet ID on mount
   useEffect(() => {
@@ -467,7 +470,7 @@ export function useResourcesState() {
 
   // QR Code endpoint
   const qrCodeUrl = activeSheet 
-    ? `${API_BASE_URL}/resources/sheets/${activeSheet.id || (activeSheet as any)._id}/qr` 
+    ? getSheetQrCodeUrl(activeSheet.id || (activeSheet as any)._id) 
     : '';
 
   const handleEditSelect = (resource: Resource) => {

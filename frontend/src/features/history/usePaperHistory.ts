@@ -12,10 +12,12 @@ export function usePaperHistory(
   const { toast } = useToast();
   const [paperHistory, setPaperHistory] = useState<QuestionPaper[]>([]);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (isMounted = () => true) => {
     try {
       const history = await getPapers();
-      setPaperHistory(history);
+      if (isMounted()) {
+        setPaperHistory(history);
+      }
     } catch (error: any) {
       console.error('Error fetching paper history:', error);
     }
@@ -23,8 +25,9 @@ export function usePaperHistory(
 
   // Load paper history from backend MongoDB or localStorage on mount
   useEffect(() => {
+    let mounted = true;
     if (user) {
-      fetchHistory();
+      fetchHistory(() => mounted);
     } else {
       // Guest user history from localStorage
       const guestHistoryStr = localStorage.getItem('mockverse_guest_papers');
@@ -41,6 +44,7 @@ export function usePaperHistory(
         setPaperHistory([]);
       }
     }
+    return () => { mounted = false; };
   }, [user, fetchHistory]);
 
   const handleSelectPaper = useCallback((paper: QuestionPaper) => {

@@ -1,7 +1,83 @@
 import ResourceSheet from '../models/ResourceSheet.js';
 import Resource from '../models/Resource.js';
+import { validateObjectId } from './shared/validation.js';
 import QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
+
+// ─── Response Normalizers (consistent _id → id mapping) ──────────────────────
+
+const formatSheetResponse = (sheet) => {
+  if (!sheet) return null;
+  const doc = sheet.toObject ? sheet.toObject() : sheet;
+  return {
+    id: (doc._id || sheet._id).toString(),
+    name: doc.name,
+    description: doc.description,
+    subject: doc.subject,
+    chapter: doc.chapter,
+    isPublic: doc.isPublic,
+    user: doc.user ? doc.user.toString() : null,
+    resourceCount: doc.resourceCount,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+};
+
+const formatResourceResponse = (resource) => {
+  if (!resource) return null;
+  const doc = resource.toObject ? resource.toObject() : resource;
+  return {
+    id: (doc._id || resource._id).toString(),
+    title: doc.title,
+    type: doc.type,
+    url: doc.url,
+    description: doc.description,
+    notes: doc.notes,
+    tags: doc.tags,
+    difficulty: doc.difficulty,
+    estimatedTime: doc.estimatedTime,
+    subject: doc.subject,
+    chapter: doc.chapter,
+    isFavorite: doc.isFavorite,
+    isCompleted: doc.isCompleted,
+    resourceSheet: doc.resourceSheet ? doc.resourceSheet.toString() : null,
+    user: doc.user ? doc.user.toString() : null,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+};
+
+// HTML entity escaper for XSS-safe HTML export
+const escapeHtml = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+// Mongoose-aware error handler for resource CRUD operations
+const handleResourceError = (error, res, defaultMessage) => {
+  if (res.headersSent) {
+    console.error(`${defaultMessage} (headers already sent):`, error.message);
+    return;
+  }
+  console.error(defaultMessage + ':', error);
+
+  if (error.name === 'ValidationError') {
+    const messages = Object.values(error.errors).map((e) => e.message);
+    return res.status(400).json({ success: false, message: messages.join('. ') });
+  }
+  if (error.name === 'CastError') {
+    return res.status(400).json({ success: false, message: `Invalid value for ${error.path}.` });
+  }
+  if (error.code === 11000) {
+    return res.status(409).json({ success: false, message: 'A resource with this data already exists.' });
+  }
+  res.status(500).json({ success: false, message: defaultMessage });
+};
 
 // ─── Resource Sheets ──────────────────────────────────────────────────────────
 
@@ -11,7 +87,7 @@ export const createSheet = async (req, res) => {
     const { name, description, isPublic, subject, chapter } = req.body;
 
     if (!name) {
-      return res.status(400).json({ message: 'Collection name is required.' });
+      return res.status(400).json({ success: false, message: 'Collection name is required.' });
     }
 
     const sheet = new ResourceSheet({
@@ -24,10 +100,9 @@ export const createSheet = async (req, res) => {
     });
 
     await sheet.save();
-    res.status(201).json(sheet);
+    res.status(201).json(formatSheetResponse(sheet));
   } catch (error) {
-    console.error('Create sheet error:', error);
-    res.status(500).json({ message: 'Failed to create resource sheet.' });
+    handleResourceError(error, res, 'Failed to create resource sheet.');
   }
 };
 
@@ -40,7 +115,7 @@ export const getSheets = async (req, res) => {
     const enrichedSheets = await Promise.all(sheets.map(async (sheet) => {
       const count = await Resource.countDocuments({ resourceSheet: sheet._id });
       return {
-        ...sheet.toObject(),
+        ...formatSheetResponse(sheet),
         resourceCount: count
       };
     }));
@@ -48,7 +123,7 @@ export const getSheets = async (req, res) => {
     res.status(200).json(enrichedSheets);
   } catch (error) {
     console.error('Get sheets error:', error);
-    res.status(500).json({ message: 'Failed to retrieve resource sheets.' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve resource sheets.' });
   }
 };
 
@@ -56,29 +131,34 @@ export const getSheets = async (req, res) => {
 export const getSheet = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid collection identifier format.' });
+    }
+
     const sheet = await ResourceSheet.findById(id);
 
     if (!sheet) {
-      return res.status(404).json({ message: 'Resource sheet not found.' });
+      return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
     }
 
     // Auth check
     const isOwner = req.user && req.user.id === sheet.user.toString();
     if (!sheet.isPublic && !isOwner) {
-      return res.status(403).json({ message: 'Access denied. This collection is private.' });
+      return res.status(403).json({ success: false, message: 'Access denied. This collection is private.' });
     }
 
     // Retrieve resources inside sheet
     const resources = await Resource.find({ resourceSheet: id }).sort({ createdAt: -1 });
 
     res.status(200).json({
-      ...sheet.toObject(),
-      resources,
+      ...formatSheetResponse(sheet),
+      resources: resources.map(formatResourceResponse),
       isOwner,
     });
   } catch (error) {
     console.error('Get sheet error:', error);
-    res.status(500).json({ message: 'Failed to retrieve collection details.' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve collection details.' });
   }
 };
 
@@ -86,15 +166,20 @@ export const getSheet = async (req, res) => {
 export const updateSheet = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid collection identifier format.' });
+    }
+
     const { name, description, isPublic, subject, chapter } = req.body;
 
     const sheet = await ResourceSheet.findById(id);
     if (!sheet) {
-      return res.status(404).json({ message: 'Resource sheet not found.' });
+      return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
     }
 
     if (sheet.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to modify this collection.' });
+      return res.status(403).json({ success: false, message: 'Not authorized to modify this collection.' });
     }
 
     if (name !== undefined) sheet.name = name;
@@ -104,10 +189,9 @@ export const updateSheet = async (req, res) => {
     if (chapter !== undefined) sheet.chapter = chapter;
 
     await sheet.save();
-    res.status(200).json(sheet);
+    res.status(200).json(formatSheetResponse(sheet));
   } catch (error) {
-    console.error('Update sheet error:', error);
-    res.status(500).json({ message: 'Failed to update resource sheet.' });
+    handleResourceError(error, res, 'Failed to update resource sheet.');
   }
 };
 
@@ -115,24 +199,29 @@ export const updateSheet = async (req, res) => {
 export const deleteSheet = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid collection identifier format.' });
+    }
+
     const sheet = await ResourceSheet.findById(id);
 
     if (!sheet) {
-      return res.status(404).json({ message: 'Resource sheet not found.' });
+      return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
     }
 
     if (sheet.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to delete this collection.' });
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this collection.' });
     }
 
     // Cascade delete resources in sheet
     await Resource.deleteMany({ resourceSheet: id });
     await ResourceSheet.findByIdAndDelete(id);
 
-    res.status(200).json({ message: 'Collection and its resources deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Collection and its resources deleted successfully.' });
   } catch (error) {
     console.error('Delete sheet error:', error);
-    res.status(500).json({ message: 'Failed to delete collection.' });
+    res.status(500).json({ success: false, message: 'Failed to delete collection.' });
   }
 };
 
@@ -140,14 +229,19 @@ export const deleteSheet = async (req, res) => {
 export const duplicateSheet = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid collection identifier format.' });
+    }
+
     const originalSheet = await ResourceSheet.findById(id);
     
     if (!originalSheet) {
-      return res.status(404).json({ message: 'Resource sheet not found.' });
+      return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
     }
 
     if (originalSheet.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to duplicate this collection.' });
+      return res.status(403).json({ success: false, message: 'Not authorized to duplicate this collection.' });
     }
 
     // Create copy of sheet
@@ -185,10 +279,10 @@ export const duplicateSheet = async (req, res) => {
       await Resource.insertMany(duplicatedResources);
     }
 
-    res.status(201).json(duplicatedSheet);
+    res.status(201).json(formatSheetResponse(duplicatedSheet));
   } catch (error) {
     console.error('Duplicate sheet error:', error);
-    res.status(500).json({ message: 'Failed to duplicate resource sheet.' });
+    res.status(500).json({ success: false, message: 'Failed to duplicate resource sheet.' });
   }
 };
 
@@ -209,25 +303,30 @@ const normalizeResourceType = (type) => {
 export const addResource = async (req, res) => {
   try {
     const { id: sheetId } = req.params;
+
+    if (!validateObjectId(sheetId)) {
+      return res.status(400).json({ success: false, message: 'Invalid collection identifier format.' });
+    }
+
     const { title, type, url, description, notes, tags, difficulty, estimatedTime, subject, chapter } = req.body;
 
     const sheet = await ResourceSheet.findById(sheetId);
     if (!sheet) {
-      return res.status(404).json({ message: 'Resource sheet not found.' });
+      return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
     }
 
     if (sheet.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to add resources to this collection.' });
+      return res.status(403).json({ success: false, message: 'Not authorized to add resources to this collection.' });
     }
 
     if (!title || !type || !url || !description) {
-      return res.status(400).json({ message: 'Title, Type, URL, and Description are required fields.' });
+      return res.status(400).json({ success: false, message: 'Title, Type, URL, and Description are required fields.' });
     }
 
     // URL validation
     const cleanUrl = url.trim();
     if (!/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(cleanUrl)) {
-      return res.status(400).json({ message: 'Invalid HTTP/HTTPS URL format.' });
+      return res.status(400).json({ success: false, message: 'Invalid HTTP/HTTPS URL format.' });
     }
 
     const resource = new Resource({
@@ -248,10 +347,9 @@ export const addResource = async (req, res) => {
     });
 
     await resource.save();
-    res.status(201).json(resource);
+    res.status(201).json(formatResourceResponse(resource));
   } catch (error) {
-    console.error('Add resource error:', error);
-    res.status(500).json({ message: error.message || 'Failed to add resource.' });
+    handleResourceError(error, res, 'Failed to add resource.');
   }
 };
 
@@ -259,21 +357,26 @@ export const addResource = async (req, res) => {
 export const updateResource = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid resource identifier format.' });
+    }
+
     const { title, type, url, description, notes, tags, difficulty, estimatedTime, subject, chapter, isFavorite, isCompleted } = req.body;
 
     const resource = await Resource.findById(id);
     if (!resource) {
-      return res.status(404).json({ message: 'Resource not found.' });
+      return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
 
     if (resource.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to edit this resource.' });
+      return res.status(403).json({ success: false, message: 'Not authorized to edit this resource.' });
     }
 
     if (url) {
       const cleanUrl = url.trim();
       if (!/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(cleanUrl)) {
-        return res.status(400).json({ message: 'Invalid HTTP/HTTPS URL format.' });
+        return res.status(400).json({ success: false, message: 'Invalid HTTP/HTTPS URL format.' });
       }
       resource.url = cleanUrl;
     }
@@ -291,10 +394,9 @@ export const updateResource = async (req, res) => {
     if (isCompleted !== undefined) resource.isCompleted = !!isCompleted;
 
     await resource.save();
-    res.status(200).json(resource);
+    res.status(200).json(formatResourceResponse(resource));
   } catch (error) {
-    console.error('Update resource error:', error);
-    res.status(500).json({ message: 'Failed to update resource.' });
+    handleResourceError(error, res, 'Failed to update resource.');
   }
 };
 
@@ -302,21 +404,26 @@ export const updateResource = async (req, res) => {
 export const deleteResource = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid resource identifier format.' });
+    }
+
     const resource = await Resource.findById(id);
 
     if (!resource) {
-      return res.status(404).json({ message: 'Resource not found.' });
+      return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
 
     if (resource.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to delete this resource.' });
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this resource.' });
     }
 
     await Resource.findByIdAndDelete(id);
-    res.status(200).json({ message: 'Resource removed successfully.' });
+    res.status(200).json({ success: true, message: 'Resource removed successfully.' });
   } catch (error) {
     console.error('Delete resource error:', error);
-    res.status(500).json({ message: 'Failed to delete resource.' });
+    res.status(500).json({ success: false, message: 'Failed to delete resource.' });
   }
 };
 
@@ -326,26 +433,30 @@ export const deleteResource = async (req, res) => {
 export const getSheetQrCode = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid identifier format.' });
+    }
     
     // Support either sheet ID or specific resource share ID (falls back to URL query parameter)
     const isResource = req.query.type === 'resource';
     
     let shareUrl;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+    const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:8080';
 
     if (isResource) {
       const resource = await Resource.findById(id);
       if (!resource) {
-        return res.status(404).json({ message: 'Resource not found.' });
+        return res.status(404).json({ success: false, message: 'Resource not found.' });
       }
       shareUrl = resource.url;
     } else {
       const sheet = await ResourceSheet.findById(id);
       if (!sheet) {
-        return res.status(404).json({ message: 'Resource sheet not found.' });
+        return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
       }
       if (!sheet.isPublic && (!req.user || req.user.id !== sheet.user.toString())) {
-        return res.status(403).json({ message: 'Access denied. This sheet is private.' });
+        return res.status(403).json({ success: false, message: 'Access denied. This sheet is private.' });
       }
       shareUrl = `${frontendUrl}/?share_sheet=${sheet._id}`;
     }
@@ -360,7 +471,7 @@ export const getSheetQrCode = async (req, res) => {
     res.send(qrBuffer);
   } catch (error) {
     console.error('QR generation error:', error);
-    res.status(500).json({ message: 'Failed to generate QR code.' });
+    res.status(500).json({ success: false, message: 'Failed to generate QR code.' });
   }
 };
 
@@ -368,15 +479,20 @@ export const getSheetQrCode = async (req, res) => {
 export const exportSheetPdf = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid collection identifier format.' });
+    }
+
     const sheet = await ResourceSheet.findById(id);
 
     if (!sheet) {
-      return res.status(404).json({ message: 'Resource sheet not found.' });
+      return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
     }
 
     // Auth check
     if (!sheet.isPublic && (!req.user || req.user.id !== sheet.user.toString())) {
-      return res.status(403).json({ message: 'Access denied. This sheet is private.' });
+      return res.status(403).json({ success: false, message: 'Access denied. This sheet is private.' });
     }
 
     const resources = await Resource.find({ resourceSheet: id }).sort({ createdAt: -1 });
@@ -411,7 +527,7 @@ export const exportSheetPdf = async (req, res) => {
     doc.moveDown(1.5);
 
     // Embed QR Code linking to shared collection
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+    const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:8080';
     const shareUrl = `${frontendUrl}/?share_sheet=${sheet._id}`;
 
     let qrBuffer;
@@ -536,7 +652,10 @@ export const exportSheetPdf = async (req, res) => {
     doc.end();
   } catch (error) {
     console.error('PDF export error:', error);
-    res.status(500).json({ message: 'Failed to generate study sheet PDF.' });
+    // If headers are already sent (streaming in progress), we cannot send JSON error
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to generate study sheet PDF.' });
+    }
   }
 };
 
@@ -544,32 +663,37 @@ export const exportSheetPdf = async (req, res) => {
 export const exportSheetHtml = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid collection identifier format.' });
+    }
+
     const sheet = await ResourceSheet.findById(id);
 
     if (!sheet) {
-      return res.status(404).json({ message: 'Resource sheet not found.' });
+      return res.status(404).json({ success: false, message: 'Resource sheet not found.' });
     }
 
     if (!sheet.isPublic && (!req.user || req.user.id !== sheet.user.toString())) {
-      return res.status(403).json({ message: 'Access denied. This sheet is private.' });
+      return res.status(403).json({ success: false, message: 'Access denied. This sheet is private.' });
     }
 
     const resources = await Resource.find({ resourceSheet: id }).sort({ createdAt: -1 });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+    const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:8080';
     const shareUrl = `${frontendUrl}/?share_sheet=${sheet._id}`;
     const qrCodeSrc = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}`;
 
     const rowsHtml = resources.map(r => `
       <tr class="border-b border-slate-800 hover:bg-slate-800/40 transition">
-        <td class="px-4 py-3 font-semibold text-slate-300 text-xs">${r.type}</td>
-        <td class="px-4 py-3 text-white text-xs font-bold">${r.title}</td>
-        <td class="px-4 py-3 text-slate-400 text-xs">${r.description}</td>
-        <td class="px-4 py-3 text-slate-400 text-xs">${r.subject || '-'}</td>
-        <td class="px-4 py-3 text-slate-400 text-xs">${r.chapter || '-'}</td>
-        <td class="px-4 py-3 text-slate-400 text-xs">${r.difficulty}</td>
+        <td class="px-4 py-3 font-semibold text-slate-300 text-xs">${escapeHtml(r.type)}</td>
+        <td class="px-4 py-3 text-white text-xs font-bold">${escapeHtml(r.title)}</td>
+        <td class="px-4 py-3 text-slate-400 text-xs">${escapeHtml(r.description)}</td>
+        <td class="px-4 py-3 text-slate-400 text-xs">${escapeHtml(r.subject) || '-'}</td>
+        <td class="px-4 py-3 text-slate-400 text-xs">${escapeHtml(r.chapter) || '-'}</td>
+        <td class="px-4 py-3 text-slate-400 text-xs">${escapeHtml(r.difficulty)}</td>
         <td class="px-4 py-3 text-right">
-          <a href="${r.url}" target="_blank" class="text-indigo-400 hover:underline font-bold text-xs">Open Source &rarr;</a>
+          <a href="${escapeHtml(r.url)}" target="_blank" class="text-indigo-400 hover:underline font-bold text-xs">Open Source &rarr;</a>
         </td>
       </tr>
     `).join('');
@@ -579,7 +703,7 @@ export const exportSheetHtml = async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MockVerse Study Sheet: ${sheet.name}</title>
+  <title>MockVerse Study Sheet: ${escapeHtml(sheet.name)}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -600,12 +724,12 @@ export const exportSheetHtml = async (req, res) => {
             Study Collection Sheet
           </div>
         </div>
-        <h1 class="text-3xl font-extrabold text-white tracking-tight font-['Sora']">${sheet.name}</h1>
-        ${sheet.description ? `<p class="text-slate-400 text-sm max-w-2xl">${sheet.description}</p>` : ''}
+        <h1 class="text-3xl font-extrabold text-white tracking-tight font-['Sora']">${escapeHtml(sheet.name)}</h1>
+        ${sheet.description ? `<p class="text-slate-400 text-sm max-w-2xl">${escapeHtml(sheet.description)}</p>` : ''}
         
         <div class="flex flex-wrap gap-4 pt-2 text-xs text-slate-400">
-          ${sheet.subject ? `<span><strong>Subject:</strong> ${sheet.subject}</span>` : ''}
-          ${sheet.chapter ? `<span><strong>Chapter:</strong> ${sheet.chapter}</span>` : ''}
+          ${sheet.subject ? `<span><strong>Subject:</strong> ${escapeHtml(sheet.subject)}</span>` : ''}
+          ${sheet.chapter ? `<span><strong>Chapter:</strong> ${escapeHtml(sheet.chapter)}</span>` : ''}
           <span><strong>Resources count:</strong> ${resources.length}</span>
           <span><strong>Generated:</strong> ${new Date().toLocaleDateString()}</span>
         </div>
@@ -652,6 +776,6 @@ export const exportSheetHtml = async (req, res) => {
     res.send(htmlContent);
   } catch (error) {
     console.error('HTML export error:', error);
-    res.status(500).json({ message: 'Failed to generate study sheet HTML.' });
+    res.status(500).json({ success: false, message: 'Failed to generate study sheet HTML.' });
   }
 };

@@ -105,14 +105,22 @@ graph TD
 | **Auth** | `/api/auth/api-key` | `PUT` | Private | Save a user's Gemini API key (encrypted with AES-256-CBC). |
 | **Auth** | `/api/auth/api-key` | `GET` | Private | Retrieve the user's masked API key. |
 | **Auth** | `/api/auth/api-key` | `DELETE` | Private | Remove the user's stored API key. |
-| **Papers** | `/api/papers` | `POST` | Private | Generate and save a new custom AI question paper. |
+| **Papers** | `/api/papers` | `POST` | Public/Auth | Generate and save a new custom AI question paper. |
 | **Papers** | `/api/papers` | `GET` | Private | Fetch the authenticated user's complete paper history. |
-| **Papers** | `/api/papers/:id` | `GET` | Private | Fetch a detailed question paper by ID. |
+| **Papers** | `/api/papers/:id` | `GET` | Public/Auth | Fetch a detailed question paper by ID. |
 | **Papers** | `/api/papers/:id` | `DELETE` | Private | Delete a question paper by ID. |
-| **Papers** | `/api/papers/:id/solutions` | `POST` | Private | Generate step-by-step worked solutions for a paper. |
-| **Papers** | `/api/papers/:id/evaluate` | `POST` | Private | Evaluate student answers and get itemized scorecards. |
-| **Chat** | `/api/chat` | `POST` | Private | Message the chatbot within the active paper context. |
-| **Health** | `/api/health` | `GET` | Public | Server health check with DB status, uptime, and environment. |
+| **Papers** | `/api/papers/:id/solutions` | `POST` | Public/Auth | Generate step-by-step worked solutions for a paper. |
+| **Papers** | `/api/papers/:id/evaluate` | `POST` | Public/Auth | Evaluate student answers and get itemized scorecards. |
+| **Chat** | `/api/chat` | `POST` | Public/Auth | Message the chatbot within the active paper context. |
+| **Resources** | `/api/resources/sheets` | `GET`, `POST` | Private | List or create resource study collections. |
+| **Resources** | `/api/resources/sheets/:id` | `GET`, `PUT`, `DELETE` | Public/Auth | View, update, or delete a resource sheet collection. |
+| **Resources** | `/api/resources/sheets/:id/resources` | `POST` | Private | Add an educational resource to a collection. |
+| **Resources** | `/api/resources/resources/:id` | `PUT`, `DELETE` | Private | Update or delete an individual resource item. |
+| **Resources** | `/api/resources/sheets/:id/pdf` | `GET` | Public/Auth | Export study sheet as formatted PDF. |
+| **Resources** | `/api/resources/sheets/:id/html` | `GET` | Public/Auth | Export study sheet as standalone HTML. |
+| **Resources** | `/api/resources/sheets/:id/qr` | `GET` | Public/Auth | Retrieve QR code image for collection sharing. |
+| **Health** | `/health` | `GET` | Public | Root health check for Render / load balancers (`status: ok`). |
+| **Health** | `/api/health` | `GET` | Public | Diagnostic health check with DB status, uptime, and environment. |
 
 ---
 
@@ -123,10 +131,11 @@ Create a `.env` file inside the `/backend` folder with the following variables:
 ```env
 PORT=5000
 NODE_ENV=production
-MONGODB_URI="mongodb+srv://<user>:<pass>@cluster.mongodb.net/mockverse"
+MONGODB_URI="mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/mockverse?retryWrites=true&w=majority"
 JWT_SECRET="your_secure_jwt_random_string_key"
 GEMINI_API_KEY="your_google_gemini_api_key"
-FRONTEND_URL="https://your-frontend-domain.vercel.app"
+CLIENT_URL="https://your-frontend-domain.vercel.app"
+# FRONTEND_URL="https://your-frontend-domain.vercel.app"
 ```
 
 For the frontend, create a `.env` file in the `/frontend` folder:
@@ -140,65 +149,38 @@ VITE_API_URL="https://your-backend-domain.onrender.com/api"
 ## ⚡ Quickstart Guide
 
 ### 1. Prerequisites
-Ensure you have **Node.js** (v18+) and **MongoDB** server active on your system.
+Ensure you have **Node.js** (v18+) and **MongoDB** (local or Atlas) active on your system.
 
 ### 2. Backend Installation
 ```bash
 cd backend
 npm install
+npm run dev
 ```
 
 ### 3. Frontend Installation
 ```bash
 cd frontend
 npm install
-```
-
-### 4. Running the Servers Locally
-
-#### Launch the Express Backend (Port 5000):
-```bash
-cd backend
-npm run dev
-```
-
-#### Launch the Vite Frontend (Port 8080):
-```bash
-cd frontend
 npm run dev
 ```
 Open `http://localhost:8080` in your web browser.
 
 ---
 
-## 🐳 Deployment Readiness & Production Build
+## 🚀 Production Deployment (Vercel + Render + MongoDB Atlas)
 
-### Vercel (Frontend)
-1. Connect the `frontend/` directory as the root in Vercel.
-2. Set the build command to `npm run build` and the output directory to `dist`.
-3. Add the environment variable `VITE_API_URL` pointing to your Render backend URL.
+For a complete walkthrough, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-### Render (Backend)
-1. Connect the `backend/` directory as the root.
-2. Set the build command to `npm install` and the start command to `node src/server.js`.
-3. Add the following environment variables: `MONGODB_URI`, `JWT_SECRET`, `GEMINI_API_KEY`, `FRONTEND_URL`, `NODE_ENV=production`.
+### 1. Backend on Render
+1. Create a **Web Service** on Render pointing to your repository.
+2. Set Root Directory to `backend`, Build Command to `npm install`, Start Command to `npm start`.
+3. Set Health Check Path to `/health`.
+4. Add environment variables: `NODE_ENV=production`, `MONGODB_URI`, `JWT_SECRET`, `GEMINI_API_KEY`, `CLIENT_URL`.
 
-### MongoDB Atlas
-1. Create a cluster and add your Render backend IP to the Network Access list.
-2. Copy the connection string and paste it as the `MONGODB_URI` value.
+### 2. Frontend on Vercel
+1. Import repository on Vercel.
+2. Set Root Directory to `frontend`, Framework Preset to `Vite`.
+3. Add environment variable: `VITE_API_URL=https://your-backend.onrender.com/api`.
+4. Deploy and update `CLIENT_URL` on Render with your live Vercel URL.
 
-### Local Production Build
-1.  **Build the Frontend Assets**:
-    ```bash
-    cd frontend
-    npm run build
-    ```
-    This compiles Vite React static files into `/frontend/dist`.
-
-2.  **Run in Production Mode**:
-    Set `NODE_ENV=production` in your hosting service environment variables and start the server:
-    ```bash
-    cd backend
-    npm start
-    ```
-    The backend server will automatically serve the static frontend bundle.

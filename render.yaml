@@ -7,7 +7,7 @@ services:
     buildCommand: npm install
     startCommand: npm start
     rootDir: backend
-    healthCheckPath: /api/health
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,12 +15,15 @@ services:
         value: 5000
       - key: MONGODB_URI
         sync: false
-        placeholder: "mongodb+srv://user:pass@cluster.mongodb.net/mockverse"
+        placeholder: "mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net/mockverse?retryWrites=true&w=majority"
       - key: JWT_SECRET
         generateValue: true
       - key: GEMINI_API_KEY
         sync: false
         placeholder: "Enter Google Gemini API Key"
+      - key: CLIENT_URL
+        sync: false
+        placeholder: "https://your-mockverse-frontend.vercel.app"
       - key: FRONTEND_URL
         sync: false
-        placeholder: "https://your-frontend-app.vercel.app"
+        placeholder: "https://your-mockverse-frontend.vercel.app"

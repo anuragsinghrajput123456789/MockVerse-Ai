@@ -46,3 +46,12 @@ export const duplicateResourceSheet = async (id: string): Promise<any> => {
 export const downloadSheetHtml = async (id: string): Promise<Blob> => {
   return httpBlob(`/resources/sheets/${id}/html`, DEFAULT_TIMEOUT, 'Failed to download HTML study sheet');
 };
+
+export const downloadResourceQr = async (id: string): Promise<Blob> => {
+  return httpBlob(`/resources/sheets/${id}/qr?type=resource`, DEFAULT_TIMEOUT, 'Failed to download resource QR code');
+};
+
+export const getSheetQrCodeUrl = (id: string): string => {
+  return `${API_BASE_URL}/resources/sheets/${id}/qr`;
+};
+

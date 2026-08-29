@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ResourceSheet } from '../types/resource';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../shared/hooks/use-toast';
@@ -19,6 +19,9 @@ export function useResourceSheets() {
   const [activeSheet, setActiveSheet] = useState<ResourceSheet | null>(null);
   const [loadingSheets, setLoadingSheets] = useState<boolean>(true);
   const [loadingResources, setLoadingResources] = useState<boolean>(false);
+
+  // Ref to avoid circular dependency in fetchSheets callback
+  const activeSheetIdRef = useRef<string | null>(null);
   const [sharedSheetId, setSharedSheetId] = useState<string | null>(null);
   const [isSharedView, setIsSharedView] = useState<boolean>(false);
 
@@ -38,6 +41,7 @@ export function useResourceSheets() {
       setLoadingResources(true);
       const data = await getResourceSheetById(id);
       setActiveSheet(data);
+      activeSheetIdRef.current = data?.id || (data as any)?._id || null;
     } catch (err: any) {
       console.error(err);
       toast({
@@ -64,14 +68,14 @@ export function useResourceSheets() {
           } else {
             await fetchSheetDetails(data[0]._id || data[0].id);
           }
-        } else if (!activeSheet) {
+        } else if (!activeSheetIdRef.current) {
           await fetchSheetDetails(data[0]._id || data[0].id);
         } else {
-          const currentId = activeSheet.id || (activeSheet as any)._id;
-          await fetchSheetDetails(currentId);
+          await fetchSheetDetails(activeSheetIdRef.current);
         }
       } else {
         setActiveSheet(null);
+        activeSheetIdRef.current = null;
       }
     } catch (err: any) {
       console.error(err);
@@ -83,7 +87,7 @@ export function useResourceSheets() {
     } finally {
       setLoadingSheets(false);
     }
-  }, [user, activeSheet, fetchSheetDetails, toast]);
+  }, [user, fetchSheetDetails, toast]);
 
   // Check URL params for share sheet ID on mount
   useEffect(() => {

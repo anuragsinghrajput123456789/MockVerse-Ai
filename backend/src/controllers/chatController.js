@@ -10,7 +10,7 @@ export const chatbot = async (req, res) => {
   try {
     const validation = validateChatbotInput(req.body);
     if (!validation.isValid) {
-      return res.status(400).json({ message: validation.message });
+      return res.status(400).json({ success: false, message: validation.message });
     }
 
     const { message, paperId, history } = req.body;

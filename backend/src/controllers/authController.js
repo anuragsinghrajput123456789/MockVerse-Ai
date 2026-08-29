@@ -27,6 +27,9 @@ const encryptApiKey = (text) => {
 };
 
 const decryptWithKey = (text, key) => {
+  if (!text || typeof text !== 'string' || !text.includes(':')) {
+    throw new Error('Invalid encrypted API key format.');
+  }
   const parts = text.split(':');
   const iv = Buffer.from(parts.shift(), 'hex');
   const encryptedText = parts.join(':');
@@ -89,17 +92,18 @@ export const signup = async (req, res) => {
     const passwordStr = req.body.password ? String(req.body.password) : '';
 
     if (!emailStr || !passwordStr) {
-      return res.status(400).json({ message: 'Please provide an email and password.' });
+      return res.status(400).json({ success: false, message: 'Please provide an email and password.' });
     }
 
     const sanitizedEmail = emailStr.trim().toLowerCase();
 
     if (!validateEmail(sanitizedEmail)) {
-      return res.status(400).json({ message: 'Please provide a valid email address.' });
+      return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
     }
 
     if (!validatePassword(passwordStr)) {
       return res.status(400).json({
+        success: false,
         message: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`,
       });
     }
@@ -110,7 +114,7 @@ export const signup = async (req, res) => {
     const userExists = await User.findOne({ email: sanitizedEmail });
 
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists.' });
+      return res.status(400).json({ success: false, message: 'User already exists.' });
     }
 
     // Hash password
@@ -126,6 +130,7 @@ export const signup = async (req, res) => {
 
     if (user) {
       res.status(201).json({
+        success: true,
         id: user._id.toString(),
         name: user.name,
         email: user.email,
@@ -133,23 +138,23 @@ export const signup = async (req, res) => {
         token: generateToken(user._id.toString()),
       });
     } else {
-      res.status(400).json({ message: 'Invalid user data.' });
+      res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
   } catch (error) {
     console.error('Signup error:', error);
 
     // Handle MongoDB duplicate key error
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'User already exists.' });
+      return res.status(400).json({ success: false, message: 'User already exists.' });
     }
 
     // Handle Mongoose validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map((e) => e.message);
-      return res.status(400).json({ message: messages.join('. ') });
+      return res.status(400).json({ success: false, message: messages.join('. ') });
     }
 
-    res.status(500).json({ message: 'Server error during signup.' });
+    res.status(500).json({ success: false, message: 'Server error during signup.' });
   }
 };
 
@@ -162,13 +167,13 @@ export const login = async (req, res) => {
     const passwordStr = req.body.password ? String(req.body.password) : '';
 
     if (!emailStr || !passwordStr) {
-      return res.status(400).json({ message: 'Please provide email and password.' });
+      return res.status(400).json({ success: false, message: 'Please provide email and password.' });
     }
 
     const sanitizedEmail = emailStr.trim().toLowerCase();
 
     if (!validateEmail(sanitizedEmail)) {
-      return res.status(400).json({ message: 'Please provide a valid email address.' });
+      return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
     }
 
     // Find user by email
@@ -177,6 +182,7 @@ export const login = async (req, res) => {
     // Check if user exists and password matches
     if (user && (await bcrypt.compare(passwordStr, user.password))) {
       res.json({
+        success: true,
         id: user._id.toString(),
         name: user.name,
         email: user.email,
@@ -184,11 +190,11 @@ export const login = async (req, res) => {
         token: generateToken(user._id.toString()),
       });
     } else {
-      res.status(401).json({ message: 'Invalid email or password.' });
+      res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login.' });
+    res.status(500).json({ success: false, message: 'Server error during login.' });
   }
 };
 
@@ -199,9 +205,10 @@ export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(404).json({ success: false, message: 'User not found.' });
     }
     res.json({
+      success: true,
       id: user._id.toString(),
       name: user.name,
       email: user.email,
@@ -210,7 +217,7 @@ export const getProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error fetching profile.' });
+    res.status(500).json({ success: false, message: 'Server error fetching profile.' });
   }
 };
 
@@ -222,18 +229,18 @@ export const saveApiKey = async (req, res) => {
     const apiKeyStr = req.body.apiKey ? String(req.body.apiKey) : '';
 
     if (!apiKeyStr.trim()) {
-      return res.status(400).json({ message: 'API key is required.' });
+      return res.status(400).json({ success: false, message: 'API key is required.' });
     }
 
     const trimmedKey = apiKeyStr.trim();
 
     if (trimmedKey.length > 256) {
-      return res.status(400).json({ message: 'API key is too long.' });
+      return res.status(400).json({ success: false, message: 'API key is too long.' });
     }
 
     const user = await User.findById(req.user.id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
     // Encrypt and save
@@ -241,13 +248,14 @@ export const saveApiKey = async (req, res) => {
     await user.save();
 
     res.json({
+      success: true,
       message: 'API key saved successfully.',
       maskedKey: maskApiKey(trimmedKey),
       hasApiKey: true,
     });
   } catch (error) {
     console.error('Save API key error:', error);
-    res.status(500).json({ message: 'Server error saving API key.' });
+    res.status(500).json({ success: false, message: 'Server error saving API key.' });
   }
 };
 
@@ -258,27 +266,28 @@ export const getApiKey = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
     if (!user.apiKey) {
-      return res.json({ hasApiKey: false, maskedKey: null });
+      return res.json({ success: true, hasApiKey: false, maskedKey: null });
     }
 
     try {
       const decrypted = decryptApiKey(user.apiKey);
       res.json({
+        success: true,
         hasApiKey: true,
         maskedKey: maskApiKey(decrypted),
       });
     } catch (decryptError) {
       // If decryption fails (e.g., key was corrupted), report as no key
       console.error('Failed to decrypt stored API key:', decryptError);
-      res.json({ hasApiKey: false, maskedKey: null });
+      res.json({ success: true, hasApiKey: false, maskedKey: null });
     }
   } catch (error) {
     console.error('Get API key error:', error);
-    res.status(500).json({ message: 'Server error fetching API key.' });
+    res.status(500).json({ success: false, message: 'Server error fetching API key.' });
   }
 };
 
@@ -289,19 +298,20 @@ export const deleteApiKey = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
     user.apiKey = '';
     await user.save();
 
     res.json({
+      success: true,
       message: 'API key removed successfully.',
       hasApiKey: false,
     });
   } catch (error) {
     console.error('Delete API key error:', error);
-    res.status(500).json({ message: 'Server error deleting API key.' });
+    res.status(500).json({ success: false, message: 'Server error deleting API key.' });
   }
 };
 

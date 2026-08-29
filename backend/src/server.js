@@ -65,9 +65,10 @@ const baseAllowedOrigins = [
   'http://localhost:3000',
 ];
 
-if (process.env.FRONTEND_URL) {
+const rawClientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL;
+if (rawClientUrl) {
   // Support comma-separated URLs and strip trailing slashes
-  const envOrigins = process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, ''));
+  const envOrigins = rawClientUrl.split(',').map(url => url.trim().replace(/\/$/, ''));
   baseAllowedOrigins.push(...envOrigins);
 }
 
@@ -87,6 +88,8 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
   credentials: true,
 }));
 
@@ -97,8 +100,18 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // Rate limiting configuration is imported from middleware/rateLimit.js
 
-// ─── Health Check Endpoint ────────────────────────────────────────────────────
+// ─── Health Check Endpoints ───────────────────────────────────────────────────
 
+// Root health check endpoint for Render / load balancers (Phase 7 requirement)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    status: 'ok',
+    service: 'mockverse-backend',
+  });
+});
+
+// Diagnostic health check with detailed database status
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
   const dbStates = {
@@ -109,7 +122,9 @@ app.get('/api/health', (req, res) => {
   };
 
   res.status(dbState === 1 ? 200 : 503).json({
+    success: dbState === 1,
     status: dbState === 1 ? 'healthy' : 'degraded',
+    service: 'mockverse-backend',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     database: dbStates[dbState] || 'unknown',
@@ -136,6 +151,7 @@ app.use('/api/resources', generalLimiter, resourceRoutes);
 
 app.all('/api/*', (req, res) => {
   res.status(404).json({
+    success: false,
     message: `API endpoint not found: ${req.method} ${req.originalUrl}`,
   });
 });
@@ -165,18 +181,39 @@ if (process.env.NODE_ENV === 'production') {
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 
 app.use((err, req, res, next) => {
+  // Guard against double-response (headers already sent, e.g. PDF streaming errors)
+  if (res.headersSent) {
+    console.error('Error after headers sent:', err.message);
+    return next(err);
+  }
+
   // CORS errors
   if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({ message: 'Cross-origin request blocked by CORS policy.' });
+    return res.status(403).json({ success: false, message: 'Cross-origin request blocked by CORS policy.' });
   }
 
   // JSON parse errors
   if (err.type === 'entity.too.large') {
-    return res.status(413).json({ message: 'Request payload is too large. Maximum allowed size is 1MB.' });
+    return res.status(413).json({ success: false, message: 'Request payload is too large. Maximum allowed size is 1MB.' });
   }
 
   if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ message: 'Invalid JSON in request body.' });
+    return res.status(400).json({ success: false, message: 'Invalid JSON in request body.' });
+  }
+
+  // ─── Mongoose-specific Errors ────────────────────────────────────────────────
+  if (err.name === 'ValidationError') {
+    const messages = Object.values(err.errors).map((e) => e.message);
+    return res.status(400).json({ success: false, message: messages.join('. ') });
+  }
+
+  if (err.name === 'CastError') {
+    return res.status(400).json({ success: false, message: `Invalid value for ${err.path}: ${err.value}` });
+  }
+
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern || {}).join(', ') || 'field';
+    return res.status(409).json({ success: false, message: `Duplicate value for ${field}. This entry already exists.` });
   }
 
   console.error('Unhandled error:', err.stack || err.message);
@@ -188,6 +225,7 @@ app.use((err, req, res, next) => {
   const showDetailedMessage = isClientError || process.env.NODE_ENV !== 'production';
 
   res.status(statusCode).json({
+    success: false,
     message: showDetailedMessage ? err.message : 'Something went wrong on the server.',
     errorCode: err.errorCode || null,
   });

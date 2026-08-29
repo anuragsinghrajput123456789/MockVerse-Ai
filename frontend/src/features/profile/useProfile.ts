@@ -29,7 +29,12 @@ export function useProfile() {
       getUserApiKey().then(data => {
         setHasStoredApiKey(data.hasApiKey);
         setApiKeyMasked(data.maskedKey);
-      }).catch(() => {});
+      }).catch((err) => {
+        // Don't log auth errors (handled by auto-logout), but log unexpected ones
+        if (err?.statusCode !== 401) {
+          console.error('Failed to fetch API key status:', err);
+        }
+      });
     } else {
       setHasStoredApiKey(false);
       setApiKeyMasked(null);
@@ -37,13 +42,13 @@ export function useProfile() {
   }, [user]);
 
   const handleQuotaError = useCallback((error: any) => {
-    if (error.errorCode === 'API_KEY_QUOTA_EXHAUSTED' || error.statusCode === 429) {
+    if (error.errorCode === 'API_KEY_QUOTA_EXHAUSTED' || error.errorCode === 'CONCURRENT_REQUEST_LIMIT' || error.statusCode === 429) {
       setQuotaModalMessage('Your API key has exceeded its usage limit. You can add a new API key below to continue generating, or wait for the quota to reset.');
       setQuotaModalKeyInput('');
       setShowQuotaModal(true);
       return true;
     }
-    if (error.errorCode === 'API_KEY_INVALID' || error.statusCode === 401) {
+    if (error.errorCode === 'API_KEY_INVALID') {
       setQuotaModalMessage('The provided API key is invalid or expired. Please enter a valid Gemini API key below to continue.');
       setQuotaModalKeyInput('');
       setShowQuotaModal(true);

@@ -14,6 +14,6 @@ export const getPapers = async (req, res) => {
     res.json(parsedPapers);
   } catch (error) {
     console.error('Get papers error:', error);
-    res.status(500).json({ message: 'Server error fetching papers.' });
+    res.status(500).json({ success: false, message: 'Server error fetching papers.' });
   }
 };

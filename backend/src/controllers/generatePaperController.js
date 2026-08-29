@@ -11,7 +11,7 @@ export const generatePaper = async (req, res) => {
   try {
     const validation = validateGeneratePaperInput(req.body);
     if (!validation.isValid) {
-      return res.status(400).json({ message: validation.message });
+      return res.status(400).json({ success: false, message: validation.message });
     }
 
     const {
@@ -33,7 +33,7 @@ export const generatePaper = async (req, res) => {
     const cleanDifficulty = difficulty || 'Medium';
     const cleanPattern = String(pattern || 'Board-style').trim().substring(0, 200);
     const cleanMarks = Number(totalMarks) || 100;
-    const cleanChapters = chapters.map(c => String(c).trim().substring(0, 200));
+    const cleanChapters = (chapters || []).map(c => String(c).trim().substring(0, 200));
 
     // ─── 1. CHECK MONGODB CACHE BEFORE CALLING GEMINI ───
     // Multi-attribute cache key lookup matching: Subject, Class, Board, Pattern, Difficulty, TotalMarks, Selected Chapters
@@ -91,7 +91,7 @@ export const generatePaper = async (req, res) => {
     // Handle Mongoose validation errors separately
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map((e) => e.message);
-      return res.status(400).json({ message: messages.join('. ') });
+      return res.status(400).json({ success: false, message: messages.join('. ') });
     }
     handleApiError(error, res, 'Generate paper error');
   }

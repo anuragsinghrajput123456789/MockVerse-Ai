@@ -9,13 +9,13 @@ import { validateObjectId } from './shared/validation.js';
 export const generateSolutions = async (req, res) => {
   try {
     if (!validateObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid question paper identifier format.' });
+      return res.status(400).json({ success: false, message: 'Invalid question paper identifier format.' });
     }
 
     const paper = await findPaperForRequest(req.params.id, req);
 
     if (!paper) {
-      return res.status(404).json({ message: 'Question paper not found or access denied.' });
+      return res.status(404).json({ success: false, message: 'Question paper not found or access denied.' });
     }
 
     // ─── CHECK MONGODB CACHE BEFORE CALLING GEMINI ───
